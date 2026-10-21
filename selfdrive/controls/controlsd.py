@@ -16,6 +16,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature
 from openpilot.selfdrive.controls.lib.lane_centering import LaneCenteringAssist
 from openpilot.selfdrive.controls.lib.navigation_turn_commit import NavigationTurnCommit
 from openpilot.selfdrive.controls.lib.turn_context import manual_turn_intent
+from openpilot.selfdrive.controls.lib.turn_steering_gate import TurnSteeringGate
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, STEER_ANGLE_SATURATION_THRESHOLD
@@ -243,6 +244,15 @@ class Controls:
       actual_curvature=self.curvature,
     )
 
+    # A committed curvature floor must still obey the matching-indicator
+    # requirement for an explicit low-speed model turn.
+    if not hasattr(self, 'turn_steering_gate'):
+      self.turn_steering_gate = TurnSteeringGate()
+    if (self.CP.carFingerprint == "TESLA_MODEL_S_PREAP" and CC.latActive
+        and not self.turn_steering_gate.allowed(CS, model_v2, new_desired_curvature)):
+      CC.latActive = False
+      self.LaC.reset()
+      new_desired_curvature = self.curvature
 
     one_blinker = CS.leftBlinker != CS.rightBlinker
 

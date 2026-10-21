@@ -1,4 +1,4 @@
 [lfs]
 	url = https://github.com/philipr144-create/openpilot-preap.git/info/lfs
-	pushurl = ssh://git@github.com/philipr144-create/openpilot-preap.git
+	pushurl = https://github.com/visegrips70/Roadline.git/info/lfs
 	locksverify = false

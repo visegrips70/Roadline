@@ -36,7 +36,9 @@ class TestMGSafety(common.CarSafetyTest, common.DriverTorqueSteeringSafetyTest):
     return self.packer.make_can_msg_safety("SCS_HSC2_FrP15", 0, values)
 
   def _torque_driver_msg(self, torque):
-    values = {"DrvrStrgDlvrdToqHSC2": torque}
+    # The shared safety test uses raw torque counts. The DBC packer accepts
+    # physical Nm, with 0.01 Nm per count; the firmware compares raw counts.
+    values = {"DrvrStrgDlvrdToqHSC2": torque * 0.01}
     return self.packer.make_can_msg_safety("EPS_HSC2_FrP03", 0, values)
 
   def _user_brake_msg(self, brake):

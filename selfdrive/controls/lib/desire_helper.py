@@ -143,6 +143,7 @@ class DesireHelper:
                     and (direction == 1) == bool(carstate.leftBlinker)
                     and not carstate.steeringPressed
                     and not getattr(carstate, 'steeringDisengage', False)
+                    and not (driver_braking(carstate) and v_ego > 0.3)
                     and carstate.canValid
                     and str(carstate.gearShifter) in ('drive', 'low', 'sport', 'eco')
                     and not (carstate.leftBlindspot if direction == 1 else carstate.rightBlindspot))

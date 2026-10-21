@@ -16,7 +16,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-          lfs: true
+          lfs: false
+      - name: Fetch assets after loading the source LFS configuration
+        run: |
+          git lfs pull
+          git submodule foreach --recursive 'git lfs pull'
       - name: Build clean development container
         run: docker build -t roadline-ci -f Dockerfile.openpilot .
       - name: Build and test; preserve all failures

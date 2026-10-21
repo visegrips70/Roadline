@@ -812,6 +812,7 @@ class ManualTurnCommit:
         or decision.get('tap_signal_active') is not False
         or decision.get('synthetic_indicator_request') != 'none'
         or cs.steeringPressed or getattr(cs, 'steeringDisengage', False)
+        or driver_braking(cs)
         or not cs.canValid
         or str(cs.gearShifter) not in ('drive', 'low', 'sport', 'eco')
         or (cs.leftBlindspot if direction == 1 else cs.rightBlindspot)
