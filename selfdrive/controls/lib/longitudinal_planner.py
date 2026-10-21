@@ -519,6 +519,8 @@ class LongitudinalPlanner:
     self.prev_accel_clip = [ACCEL_MIN, ACCEL_MAX]
     self.prev_turn_accel_max = ACCEL_MAX
     self.output_a_target = 0.0
+    # Diagnostics also run for non-Pre-AP cars, where the handoff is inactive.
+    self.handoff_reason = 'OFF'
     # NAP_PREDICTIVE_GRADE_V9E: disabled by default.
     self.nap_v9e_grade = PredictiveGradeAssist(dt=self.dt)
     self.nap_v9e_toggle = FileGradeToggle(dt=self.dt)

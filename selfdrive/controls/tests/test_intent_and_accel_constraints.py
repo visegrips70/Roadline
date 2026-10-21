@@ -22,8 +22,12 @@ class StoppedIntent(unittest.TestCase):
     self.cs.brakePressed = False
     self.cs.vEgo = .6
     self.assertEqual(self.tick(), log.Desire.turnLeft)
-    # Braking while moving still cancels the request immediately.
+    # Pedals own speed independently of a qualified lateral turn (V7).
     self.cs.brakePressed = True
+    self.assertEqual(self.tick(), log.Desire.turnLeft)
+    self.assertFalse(self.helper.manual_entry.blocked)
+    # A deliberate steering disengagement still cancels lateral intent.
+    self.cs.steeringDisengage = True
     self.assertEqual(self.tick(), log.Desire.none)
     self.assertTrue(self.helper.manual_entry.blocked)
 

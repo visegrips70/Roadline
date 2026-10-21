@@ -3,11 +3,12 @@
 A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.
 
 **Development source only. Not ready for installation or road use.**
-The desktop build succeeds, but inherited feature tests and broader safety checks
-still have unresolved failures. No validated Roadline installer is available.
-See [validation results and remaining gates](docs/roadline/VALIDATION.md).
+The desktop build and control tests pass. Static safety analysis, clean CI,
+and actual Comma 3X validation still have unresolved gates. No validated Roadline
+installer is available. See [current readiness](docs/roadline/READINESS_2026-10-21.md)
+and [Comma 3X preparation](docs/roadline/COMMA_3X.md).
 
-Publication note: `system/hardware/tici/id_rsa` is excluded because automatic approval review blocked publication of the inherited RSA private-key file. [SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) records the prepared source identity and this exact omission. Saved validation reports describe the original prepared snapshot.
+Publication note: `system/hardware/tici/id_rsa` remains excluded. [SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) records the initial publication and omission; the [current readiness report](docs/roadline/READINESS_2026-10-21.md) identifies subsequent source changes and their validation.
 
 
 Roadline starts from Philip's `openpilot-preap` main branch, retaining NAP's

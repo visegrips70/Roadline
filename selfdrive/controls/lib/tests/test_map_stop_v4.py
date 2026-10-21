@@ -206,7 +206,8 @@ class Projection(unittest.TestCase):
 
 class PlannerIntegration(unittest.TestCase):
   def run_planner(self, *, map_enabled=True, distance=30., speed=5., cruise=50.,
-                  mpc_stop=False, model_stop=False, experimental=False, map_state=None):
+                  mpc_stop=False, model_stop=False, experimental=False, map_state=None,
+                  mapped_stops_enabled=True):
     import numpy as np
     from openpilot.selfdrive.controls.lib import longitudinal_planner as lp
     cp=NS(brand='tesla', carFingerprint='TESLA_MODEL_S_PREAP', openpilotLongitudinalControl=True,
@@ -221,6 +222,7 @@ class PlannerIntegration(unittest.TestCase):
                      action=NS(desiredAcceleration=-1.5,shouldStop=model_stop)))
     with patch.object(lp,'Params') as params, patch.object(lp,'LongitudinalMpc') as factory, \
          patch.object(lp,'CornerAssist') as corner, patch.object(lp,'read_snapshot') as read, \
+         patch.object(lp,'mapped_stop_setting_enabled',return_value=mapped_stops_enabled), \
          patch.object(lp,'map_curve_speed_cap',return_value=None), \
          patch.object(lp,'navigation_speed_cap',return_value=None), \
          patch.object(lp,'get_accel_from_plan',return_value=(-1.,mpc_stop)), \
@@ -264,6 +266,10 @@ class PlannerIntegration(unittest.TestCase):
     self.assertEqual(cap,0.);self.assertTrue(p.output_should_stop)
     p,cap,_=self.run_planner(map_enabled=False,distance=7.,speed=2.)
     self.assertFalse(p.output_should_stop)
+    # Both the general map toggle and the explicit stop setting are required.
+    p,cap,_=self.run_planner(mapped_stops_enabled=False,distance=7.,speed=2.)
+    self.assertFalse(p.output_should_stop)
+    self.assertAlmostEqual(cap,50/3.6)
 
   def test_planner_uses_shared_profile_at_low_and_high_speed(self):
     from opendbc.car.tesla.preap.accel_policy import accel_ceiling

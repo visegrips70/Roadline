@@ -18,11 +18,7 @@ FOCUSED = [
   'selfdrive/monitoring/test_monitoring.py',
   'opendbc_repo/opendbc/safety/tests/test_tesla_preap.py',
 ]
-FEATURES = [f'selfdrive/controls/tests/test_{name}.py' for name in (
-  'city_turn_gates', 'manual_turn_commit', 'turn_continuation', 'turn_route_replay',
-  'turn_setting_types', 'turn_sign_conventions', 'wide_turn_order', 'steering_delivery',
-  'normal_model_stop', 'preap_longcontrol', 'intent_and_accel_constraints', 'coast_limit_recovery',
-)]
+FEATURES = ['selfdrive/controls/tests', 'selfdrive/controls/lib/tests']
 
 
 def main():
@@ -34,6 +30,11 @@ def main():
     parser.error('--jobs must be positive')
   output = args.output.resolve()
   output.mkdir(parents=True, exist_ok=True)
+  revision = os.environ.get('ROADLINE_REVISION')
+  dirty = None  # Docker source copies intentionally contain no .git metadata.
+  if revision is None:
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True))
   env = dict(os.environ, SCALE='1', PYTHONPATH=f'{ROOT}:{ROOT / "server"}')
   env['PATH'] = f'{Path(sys.executable).parent}:{env.get("PATH", "")}'
   pytest = [sys.executable, '-m', 'pytest', '-n', '0']
@@ -41,7 +42,9 @@ def main():
     ('native-build', [sys.executable, '-m', 'SCons', '-j', str(args.jobs)]),
     ('focused', pytest + FOCUSED),
     ('inherited-features', pytest + FEATURES),
+    ('dashboard', [sys.executable, '-m', 'unittest', 'discover', '-s', 'server/tests', '-q']),
     ('all-safety', pytest + ['opendbc_repo/opendbc/safety/tests']),
+    ('misra-baseline', ['bash', 'opendbc_repo/opendbc/safety/tests/misra/test_misra.sh']),
   ]
   results = []
   for name, command in checks:
@@ -52,8 +55,8 @@ def main():
     results.append(dict(name=name, command=command, exit_code=result.returncode,
                         elapsed_seconds=round(time.monotonic() - start, 2)))
     print(f'{name}: {"PASS" if result.returncode == 0 else "FAIL"}', flush=True)
-  revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-  dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True))
+    if result.returncode:
+      print('\n'.join((output / f'{name}.log').read_text(errors='replace').splitlines()[-30:]), flush=True)
   report = dict(revision=revision, working_tree_modified=dirty, checks=results,
                 status='PASS' if all(row['exit_code'] == 0 for row in results) else 'FAIL',
                 scope='Desktop development checks; no device, road, or end-to-end model validation.')

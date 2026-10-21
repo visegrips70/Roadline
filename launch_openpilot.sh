@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
-python3 /data/openpilot/mpp_writer.py &
-exec ./launch_chffrplus.sh
-/data/ngrok http 7070 --url https://statistic-vividly-consent.ngrok-free.dev > /tmp/ngrok.log 2>&1 &
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+cd "$DIR" || exit 1
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+python3 "$DIR/mpp_writer.py" &
+exec "$DIR/launch_chffrplus.sh"

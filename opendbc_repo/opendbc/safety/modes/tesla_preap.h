@@ -63,8 +63,8 @@ void can_set_checksum(CANPacket_t *packet);
 // Byte manipulation macros
 // ============================================
 
-#define PREAP_GET_BYTES_04(msg) ((msg)->data[0] | ((msg)->data[1] << 8) | ((msg)->data[2] << 16) | ((msg)->data[3] << 24))
-#define PREAP_GET_BYTES_48(msg) ((msg)->data[4] | ((msg)->data[5] << 8) | ((msg)->data[6] << 16) | ((msg)->data[7] << 24))
+#define PREAP_GET_BYTES_04(msg) ((uint32_t)(msg)->data[0] | ((uint32_t)(msg)->data[1] << 8U) | ((uint32_t)(msg)->data[2] << 16U) | ((uint32_t)(msg)->data[3] << 24U))
+#define PREAP_GET_BYTES_48(msg) ((uint32_t)(msg)->data[4] | ((uint32_t)(msg)->data[5] << 8U) | ((uint32_t)(msg)->data[6] << 16U) | ((uint32_t)(msg)->data[7] << 24U))
 #define PREAP_WORD_TO_BYTES(dst8, src32) 0[dst8] = ((src32) & 0xFFU); 1[dst8] = (((src32) >> 8U) & 0xFFU); 2[dst8] = (((src32) >> 16U) & 0xFFU); 3[dst8] = (((src32) >> 24U) & 0xFFU)
 
 // ============================================
@@ -302,8 +302,11 @@ static void tesla_preap_gtw_emulation(const CANPacket_t *to_fwd) {
         int kph_x100 = mph_x100 * 1609 / 1000;
         speed = (kph_x100 < 0) ? 0 : ((kph_x100 / 4) & 0x1FFF);
       }
-      uint32_t ws_lo = (uint32_t)(speed | (speed << 13) | (speed << 26));
-      uint32_t ws_hi = (uint32_t)((speed >> 6) | (speed << 7) | (ws_counter << 20)) & 0x00FFFFFFU;
+      // Pack using unsigned arithmetic: shifting a signed 13-bit speed by
+      // 26 is undefined before a cast can truncate it to the intended bits.
+      uint32_t speed_bits = (uint32_t)speed;
+      uint32_t ws_lo = speed_bits | (speed_bits << 13U) | (speed_bits << 26U);
+      uint32_t ws_hi = ((speed_bits >> 6U) | (speed_bits << 7U) | ((uint32_t)ws_counter << 20U)) & 0x00FFFFFFU;
       int ws_cksm = 0x76;
       ws_cksm = (ws_cksm + (int)(ws_lo & 0xFF) + (int)((ws_lo >> 8) & 0xFF) + (int)((ws_lo >> 16) & 0xFF) + (int)((ws_lo >> 24) & 0xFF)) & 0xFF;
       ws_cksm = (ws_cksm + (int)(ws_hi & 0xFF) + (int)((ws_hi >> 8) & 0xFF) + (int)((ws_hi >> 16) & 0xFF)) & 0xFF;

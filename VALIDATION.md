@@ -1,3 +1,5 @@
+> Historical initial-snapshot report. See [current readiness](docs/roadline/READINESS_2026-10-21.md) for the continuation checks and blockers.
+
 # Roadline 0.1 development validation
 
 Status: **not ready for installation or road use**. Checked on 2026-10-21 on Linux x86-64,

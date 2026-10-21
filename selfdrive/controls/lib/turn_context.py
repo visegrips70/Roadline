@@ -35,7 +35,6 @@ def manual_turn_intent(cs, decision, model, now, require_pair=True):
           and decision.get('source') in ('none', 'driver_desire_helper')
           and decision.get('final_desire') in ('none', 'turnLeft' if direction == 1 else 'turnRight')
           and not cs.steeringPressed and not getattr(cs, 'steeringDisengage', False)
-          and not (driver_braking(cs) and cs.vEgo > 0.3)
           and cs.canValid
           and not (cs.leftBlindspot if direction == 1 else cs.rightBlindspot)
           and str(cs.gearShifter) in ('drive', 'low', 'sport', 'eco'))

@@ -501,8 +501,12 @@ class NavigationTests(unittest.TestCase):
     self.state(kind="turn", distance=10)
     c.leftBlinker = False
     self.assertEqual(self.nav.update(c, NS(latActive=True), True, now=2.05,
-                                     physical_direction=0), "turnLeft")
+                                     physical_direction=0), "none")
     self.assertEqual(self.nav.indicator_request, "left")
+    # Model guidance waits for the requested lamp to be observed on CAN.
+    c.leftBlinker = True
+    self.assertEqual(self.nav.update(c, NS(latActive=True), True, now=2.10,
+                                     physical_direction=0), "turnLeft")
     signal = json.loads(self.signal_path.read_text())
     self.assertTrue(signal["active"])
     self.assertEqual(signal["direction"], 1)

@@ -80,11 +80,17 @@ def test_future_turn_requires_speed_intent_dwell_and_fresh_geometry():
  e=ManualTurnEntry()
  for i in range(7):m.frameId+=1;assert not e.update(m,1,5,False,100+i*.05)
 
-@pytest.mark.parametrize('change',[dict(brake=1),dict(rightBlinker=True),dict(steeringPressed=True),dict(leftBlindspot=True)])
+@pytest.mark.parametrize('change',[dict(steeringDisengage=True),dict(rightBlinker=True),dict(steeringPressed=True),dict(leftBlindspot=True)])
 def test_shared_intent_gates(change):
  c=cs();assert manual_turn_intent(c,decision(),model(),100)
  for k,v in change.items():setattr(c,k,v)
  assert not manual_turn_intent(c,decision(),model(),100)
+
+def test_shared_lateral_intent_yields_speed_to_driver_brake():
+ c=cs();c.brake=1
+ assert driver_braking(c)
+ # V7 separates pedal speed ownership from qualified lateral intent.
+ assert manual_turn_intent(c,decision(),model(),100)
 
 def test_unpaired_decision_cannot_veto_model():
  with patch('openpilot.selfdrive.controls.lib.navigation_turn_commit.Params'):
@@ -248,6 +254,9 @@ def test_carried_direction_veto_is_bounded_and_cannot_create_a_turn():
  n._refresh=lambda _:None;n.enabled=False;n.decision=decision(frame=10)
  assert n.update(.01,cs(),True,100,model=model(frame=10),healthy=True,actual_curvature=0)==0
  n.decision=decision(now=100,frame=10)
- assert n.update(.01,cs(),True,100.1,model=model(frame=20),healthy=True,actual_curvature=0)==0
- assert n.update(.01,cs(),True,100.16,model=model(frame=20),healthy=True,actual_curvature=0)==.01
+ # Current publication contract allows at most six frames of skew and
+ # 0.35 seconds of age. The old ten-frame carry would accept stale intent.
+ assert n.update(.01,cs(),True,100.1,model=model(frame=16),healthy=True,actual_curvature=0)==0
+ assert n.update(.01,cs(),True,100.1,model=model(frame=17),healthy=True,actual_curvature=0)==.01
+ assert n.update(.01,cs(),True,100.36,model=model(frame=16),healthy=True,actual_curvature=0)==.01
  assert not n.manual.active

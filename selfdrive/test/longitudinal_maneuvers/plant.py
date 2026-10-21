@@ -11,6 +11,14 @@ from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPl
 from openpilot.selfdrive.controls.radard import _LEAD_ACCEL_TAU
 
 
+class SimulationInputs(dict):
+  """Synchronous synthetic messages used only by the offline plant."""
+  def all_checks(self, service_list=None):
+    # Every supplied service is regenerated for the current simulation tick.
+    # Missing services must still fail the planner's input-health gate.
+    return all(service in self for service in (service_list or self))
+
+
 class Plant:
   messaging_initialized = False
 
@@ -118,6 +126,9 @@ class Plant:
     model.modelV2.meta.disengagePredictions.gasPressProbs = [float(prob_throttle) for _ in range(6)]
 
     control.controlsState.longControlState = LongCtrlState.pid if self.enabled else LongCtrlState.off
+    ss.selfdriveState.enabled = self.enabled
+    car_control.carControl.longActive = self.enabled
+    car_state.carState.aEgo = float(self.acceleration)
     ss.selfdriveState.experimentalMode = self.e2e
     ss.selfdriveState.personality = self.personality
     control.controlsState.forceDecel = self.force_decel
@@ -127,13 +138,13 @@ class Plant:
     car_control.carControl.orientationNED = [0., float(pitch), 0.]
 
     # ******** get controlsState messages for plotting ***
-    sm = {'radarState': radar.radarState,
+    sm = SimulationInputs({'radarState': radar.radarState,
           'carState': car_state.carState,
           'carControl': car_control.carControl,
           'controlsState': control.controlsState,
           'selfdriveState': ss.selfdriveState,
           'liveParameters': lp.liveParameters,
-          'modelV2': model.modelV2}
+          'modelV2': model.modelV2})
     self.planner.update(sm)
     self.acceleration = self.planner.output_a_target
     self.speed = self.speed + self.acceleration * self.ts

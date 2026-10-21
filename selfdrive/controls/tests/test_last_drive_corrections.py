@@ -46,7 +46,10 @@ def test_recorded_unsignaled_left_turn_regression():
 
 def test_relaxed_lower_launch_and_city_rise_other_profiles_unchanged():
  for speed in (0.,1.3,5.,7.5,8.9408,11.176):
-  assert accel_ceiling(speed,2)<=.35
+  # Current upstream relaxed profile: 0.24 at launch, rising to 0.54 at 25 mph.
+  # Its low-speed ceiling must remain below the standard profile.
+  assert accel_ceiling(speed,2)<=.54
+  assert accel_ceiling(speed,2)<accel_ceiling(speed,1)
   assert limit_positive_accel(1.,0.,speed,2,.05)<=.009000001
  assert accel_ceiling(22.352,2)==.56
  assert limit_positive_accel(1.,0.,25.,2,.05)==.015

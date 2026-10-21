@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR
 
-source ../../../../setup.sh
+# Dependency installation belongs to the build setup, not a safety test.
+# This also works from a source archive or a mutation-test copy without .git.
+BASEDIR="$(cd "$DIR/../../../.." && pwd)"
 
 GREEN="\e[1;32m"
 YELLOW="\e[1;33m"
@@ -12,17 +14,27 @@ RED="\e[1;31m"
 NC='\033[0m'
 
 : "${CPPCHECK_DIR:=$DIR/cppcheck/}"
+if [ ! -x "$CPPCHECK_DIR/cppcheck" ] || [ ! -f "$CPPCHECK_DIR/addons/misra.py" ]; then
+  echo "Missing cppcheck 2.17.1. Run $DIR/install.sh before validation." >&2
+  exit 2
+fi
+if [ "$("$CPPCHECK_DIR/cppcheck" --version)" != "Cppcheck 2.17.1" ]; then
+  echo "Safety validation requires Cppcheck 2.17.1." >&2
+  exit 2
+fi
 
 # ensure checked in coverage table is up to date
-python3 $CPPCHECK_DIR/addons/misra.py -generate-table > coverage_table
-if ! git diff --quiet coverage_table; then
+GENERATED_COVERAGE=$(mktemp)
+CHECKLIST=$(mktemp)
+trap 'rm -f "$GENERATED_COVERAGE" "$CHECKLIST" "$CHECKLIST.tmp"' EXIT
+python3 "$CPPCHECK_DIR/addons/misra.py" -generate-table > "$GENERATED_COVERAGE"
+if ! cmp -s "$GENERATED_COVERAGE" coverage_table; then
   echo -e "${YELLOW}MISRA coverage table doesn't match. Update and commit:${NC}"
   exit 3
 fi
 
 cd $BASEDIR
 
-CHECKLIST=$(mktemp)
 echo "Cppcheck checkers list from test_misra.sh:" > $CHECKLIST
 
 cppcheck() {
@@ -35,8 +47,8 @@ cppcheck() {
   echo -e "\n\n\n\n\nTEST variant options:" >> $CHECKLIST
   echo -e ""${@//$BASEDIR/}"\n\n" >> $CHECKLIST # (absolute path removed)
 
-  OPENDBC_ROOT=${OPENDBC_ROOT:-$BASEDIR}
-  $CPPCHECK_DIR/cppcheck --inline-suppr -I $OPENDBC_ROOT \
+  local source_root=${OPENDBC_ROOT:-$BASEDIR}
+  $CPPCHECK_DIR/cppcheck --inline-suppr -I "$source_root" \
           -I "$(gcc -print-file-name=include)" --suppress=*:*gcc*include/* --suppress=*:*clang*include/* \
           --suppressions-list=$DIR/suppressions.txt  \
            --error-exitcode=2 --check-level=exhaustive --safety \
@@ -61,11 +73,11 @@ cppcheck $OPTS $BASEDIR/opendbc/safety/tests/misra/main.c
 printf "\n${GREEN}Success!${NC} took $SECONDS seconds\n"
 
 # ensure list of checkers is up to date
-if [ -z "$OPENDBC_ROOT" ]; then
+if [ -z "${OPENDBC_ROOT:-}" ]; then
   cd $DIR
-  if ! git diff --quiet $CHECKLIST; then
+  if ! cmp -s "$CHECKLIST" "$DIR/checkers.txt"; then
     echo -e "\n${YELLOW}WARNING: Cppcheck checkers.txt report has changed. Review and commit...${NC}"
-    mv $CHECKLIST $DIR/checkers.txt
+    diff -u "$DIR/checkers.txt" "$CHECKLIST" || true
     exit 4
   fi
 fi

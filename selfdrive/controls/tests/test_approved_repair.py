@@ -1,8 +1,17 @@
 from types import SimpleNamespace as N
 from unittest.mock import patch
+import pytest
 from openpilot.selfdrive.controls.lib.normal_propulsion import NormalPropulsion
 from openpilot.selfdrive.controls.lib.tests import test_preap_accel_transitions as fixtures
 from openpilot.selfdrive.controls.lib import longitudinal_planner as lp
+
+
+@pytest.fixture
+def planner_fixture(request):
+ t=fixtures.PlannerTransitions()
+ request.addfinalizer(t.doCleanups)
+ t.setUp()
+ return t
 
 
 def forecast(accel=.6, speeds=None):
@@ -14,15 +23,17 @@ def test_normal_permission_requires_sustained_complete_nonstopping_forecast():
  for _ in range(5):assert not s.update(forecast(),10.,15.,enabled=True,valid=True,blocked=False)
  assert s.update(forecast(),10.,15.,enabled=True,valid=True,blocked=False)
  assert not s.update(forecast(),10.,15.,enabled=True,valid=True,blocked=True)
- for m in [forecast(-.1),forecast(speeds=[10.,9.,8.,5.,0.]),forecast(speeds=[30.,31.,32.,33.,34.])]:
+ # The inherited speed-deficit policy permits weak coast down to -0.10.
+ # Stronger model braking, predicted stops and misaligned forecasts reject it.
+ for m in [forecast(-.11),forecast(speeds=[10.,9.,8.,5.,0.]),forecast(speeds=[30.,31.,32.,33.,34.])]:
   s=NormalPropulsion(.05)
   for _ in range(20):assert not s.update(m,10.,15.,enabled=True,valid=True,blocked=False)
  m=forecast();m.action.shouldStop=True
  assert not NormalPropulsion(.05).update(m,10.,15.,enabled=True,valid=True,blocked=False)
 
 
-def test_real_normal_planner_recovers_permission_without_raising_accel_profile():
- t=fixtures.PlannerTransitions();t.setUp();t.sm['modelV2'].action=forecast().action;t.sm['modelV2'].velocity=forecast().velocity
+def test_real_normal_planner_recovers_permission_without_raising_accel_profile(planner_fixture):
+ t=planner_fixture;t.sm['modelV2'].action=forecast().action;t.sm['modelV2'].velocity=forecast().velocity
  t.sm['carState'].vCruise=54.
  t.sm['selfdriveState'].experimentalMode=False;t.p.nap_adaptive_accel=True
  with patch.object(lp,'model_support_weight',return_value=1.),patch.object(lp,'normal_model_stop_enabled',return_value=True):
@@ -67,13 +78,15 @@ def test_city_controller_yields_and_blends_from_measured_angle_at_18_mph():
   assert c.tesla_can.create_steering_control.call_args.args[-1] is False
 
 
-def test_normal_recovery_preserves_restrictive_lead_mpc_and_physical_brake():
- t=fixtures.PlannerTransitions();t.setUp();m=forecast()
+def test_normal_recovery_preserves_restrictive_lead_mpc_and_physical_brake(planner_fixture):
+ t=planner_fixture;m=forecast()
  t.sm['modelV2'].action=m.action;t.sm['modelV2'].velocity=m.velocity
  t.sm['carState'].vCruise=54.;t.p.nap_adaptive_accel=True
  t.sm['radarState'].leadOne.status=True;t.plan.return_value=(-2.,True)
  t.p.parse_model=lambda _: ([0.]*33,[10.]*33,[0.]*33,[0.]*33,.3)
  for _ in range(6):output=t.tick()
- assert t.p.normal_propulsion_recovery
+ # A live lead now blocks recovery permission itself, as well as retaining
+ # the selected braking request. Never relax that newer restriction.
+ assert not t.p.normal_propulsion_recovery
  assert output<=-2. and t.p.output_should_stop
  t.sm['carState'].brake=1.;t.tick();assert not t.p.normal_propulsion_recovery

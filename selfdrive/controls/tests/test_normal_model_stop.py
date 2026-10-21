@@ -106,8 +106,8 @@ def test_sustained_rolling_stop_can_forecast_departure_after_slow_roll():
  for _ in range(20):assert not s.update(m,10.,enabled=True,valid=True,reset=False)
 
 
-def test_normal_planner_honors_sustained_rolling_approach_without_stop_flag():
- t=TestNormalPlannerStops();t.setUp()
+def test_normal_planner_honors_sustained_rolling_approach_without_stop_flag(request):
+ t=TestNormalPlannerStops();request.addfinalizer(t.doCleanups);t.setUp()
  m=rolling_stop();t.sm['modelV2'].action=m.action;t.sm['modelV2'].velocity=m.velocity
  t.plan.return_value=(.4,False)
  with patch.object(lp,'normal_model_stop_enabled',return_value=True):

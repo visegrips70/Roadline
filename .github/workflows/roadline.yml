@@ -26,8 +26,10 @@ jobs:
       - name: Build and test; preserve all failures
         run: |
           mkdir -p build/roadline-validation
-          docker run --rm -v "$PWD/build/roadline-validation:/reports" roadline-ci bash -c \
-            'uv sync --frozen --extra testing && .venv/bin/python tools/roadline/validate.py --output /reports --jobs 2'
+          docker run --rm -e ROADLINE_REVISION="$GITHUB_SHA" -v "$PWD/build/roadline-validation:/reports" roadline-ci bash -c '
+            uv sync --frozen --extra testing &&
+            bash opendbc_repo/opendbc/safety/tests/misra/install.sh &&
+            .venv/bin/python tools/roadline/validate.py --output /reports --jobs 2'
       - name: Save validation results
         if: always()
         uses: actions/upload-artifact@v6

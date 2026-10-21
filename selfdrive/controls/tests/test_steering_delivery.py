@@ -94,37 +94,49 @@ class TeslaTakeover(unittest.TestCase):
     self.tick()
     self.assertTrue(self.c.low_speed_turn_takeover_latched)
     self.cs.out.steeringPressed=False
-    self.tick(49)
+    # The current NAP contract is 0.20 s quiet handback, with a measured-angle
+    # blend covered by test_last_drive_corrections and test_approved_repair.
+    self.tick(19)
     self.assertTrue(self.c.low_speed_turn_takeover_latched)
     self.tick(2)
     self.assertFalse(self.c.low_speed_turn_takeover_latched)
     # Assert actual controller enables its steering CAN builder after handoff.
     self.assertTrue(self.c.tesla_can.create_steering_control.call_args.args[2])
 
-  def test_curved_or_misaligned_path_cannot_reacquire(self):
-    self.cs.hands_on_level=2
+  def test_invalid_can_or_nonfinite_angle_cannot_reacquire(self):
+    # Level 3 is the explicit EPAS override; level 2 without torque is not.
+    self.cs.hands_on_level=3
     self.tick()
     self.cs.hands_on_level=0
-    self.cc.actuators.steeringAngleDeg=30.
+    self.cc.actuators.steeringAngleDeg=float('nan')
     self.tick(100)
     self.assertTrue(self.c.low_speed_turn_takeover_latched)
     self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
-    self.cc.actuators.steeringAngleDeg=8.
-    self.cs.out.steeringAngleDeg=-8.
+    self.cc.actuators.steeringAngleDeg=0.
+    self.cs.out.canValid=False
     self.tick(100)
     self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.cs.out.canValid=True
+    self.cs.out.steeringAngleDeg=float('inf')
+    self.tick(100)
+    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.cs.out.steeringAngleDeg=0.
+    self.tick(19)
+    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.tick(2)
+    self.assertFalse(self.c.low_speed_turn_takeover_latched)
 
   def test_renewed_driver_input_restarts_quiet_interval(self):
-    self.cs.hands_on_level=2
+    self.cs.hands_on_level=3
     self.tick()
     self.cs.hands_on_level=0
-    self.tick(30)
+    self.tick(10)
     self.cs.out.steeringPressed=True
     self.tick()
     self.cs.out.steeringPressed=False
-    self.tick(30)
+    self.tick(19)
     self.assertTrue(self.c.low_speed_turn_takeover_latched)
-    self.tick(21)
+    self.tick(2)
     self.assertFalse(self.c.low_speed_turn_takeover_latched)
 
   def test_disengagement_never_sends_active_steering(self):
