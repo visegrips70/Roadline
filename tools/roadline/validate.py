@@ -47,11 +47,22 @@ def main():
     ('misra-baseline', ['bash', 'opendbc_repo/opendbc/safety/tests/misra/test_misra.sh']),
   ]
   results = []
+  native_build_passed = False
   for name, command in checks:
+    if name not in ('native-build', 'misra-baseline') and not native_build_passed:
+      # Compiled Python extensions and libsafety may still be present from an
+      # older revision. Never report tests against them as this revision's pass.
+      (output / f'{name}.log').write_text('BLOCKED: native build failed; compiled dependencies may be stale.\n')
+      results.append(dict(name=name, command=command, exit_code=None, elapsed_seconds=0,
+                          blocked_by='native-build'))
+      print(f'{name}: BLOCKED by native-build', flush=True)
+      continue
     print(f'Running {name}; log: {output / (name + ".log")}', flush=True)
     start = time.monotonic()
     with (output / f'{name}.log').open('w') as log:
       result = subprocess.run(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+    if name == 'native-build':
+      native_build_passed = result.returncode == 0
     results.append(dict(name=name, command=command, exit_code=result.returncode,
                         elapsed_seconds=round(time.monotonic() - start, 2)))
     print(f'{name}: {"PASS" if result.returncode == 0 else "FAIL"}', flush=True)

@@ -5,7 +5,7 @@ Cppcheck checkers list from test_misra.sh:
 
 
 TEST variant options:
---enable=all --enable=unusedFunction --addon=misra -DCANFD /opendbc/safety/main.c
+--enable=all --enable=unusedFunction --addon=misra /opendbc/safety/tests/misra/main.c
 
 
 Critical errors

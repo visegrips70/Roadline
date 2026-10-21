@@ -345,5 +345,6 @@ extern const safety_hooks volkswagen_mqb_hooks;
 extern const safety_hooks volkswagen_pq_hooks;
 extern const safety_hooks rivian_hooks;
 extern const safety_hooks psa_hooks;
+extern const safety_hooks mg_hooks;
 extern const safety_hooks tesla_preap_hooks;
 extern const safety_hooks tesla_legacy_hooks;
