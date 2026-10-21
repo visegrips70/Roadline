@@ -1,0 +1,32 @@
+name: Roadline development validation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: roadline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          lfs: true
+      - name: Build clean development container
+        run: docker build -t roadline-ci -f Dockerfile.openpilot .
+      - name: Build and test; preserve all failures
+        run: |
+          mkdir -p build/roadline-validation
+          docker run --rm -v "$PWD/build/roadline-validation:/reports" roadline-ci bash -c \
+            'uv sync --frozen --extra testing && .venv/bin/python tools/roadline/validate.py --output /reports --jobs 2'
+      - name: Save validation results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: roadline-validation-${{ github.sha }}
+          path: build/roadline-validation
