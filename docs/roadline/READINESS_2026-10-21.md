@@ -7,7 +7,8 @@ continuation is published to the private `visegrips70/Roadline` repository on
 Its complete tree matches the locally tested commit; the mapping is in
 [`readiness-results/publication.json`](readiness-results/publication.json).
 The [clean CI run](https://github.com/visegrips70/Roadline/actions/runs/39617654298)
-is still pending. Device inventory, a Comma 3X build and hardware validation remain.
+passed every validation stage. Device inventory, a Comma 3X build and hardware
+validation remain. This is a development candidate, not an activated device release.
 
 ## Changes prepared
 
@@ -67,7 +68,7 @@ revision inside the summary identifies the runtime code that was tested.
 | Dashboard, local environment | 74 passed; 3 errors because AF_UNIX datagram sockets are denied locally |
 | Dashboard, first clean GitHub run | All 77 passed on published commit `21519fb`; dashboard source is unchanged |
 | Static safety analysis | Passed with pinned Cppcheck 2.17.1 and existing suppression policy |
-| Clean CI for latest source commit | Pending; no full CI pass claimed yet |
+| Clean CI for source commit `369fc9d` | Passed all six stages, including all 77 dashboard tests and static analysis |
 | Comma 3X build, boot, CAN/firmware and controlled-course checks | Not performed |
 
 Counts overlap between suites and must not be added as a count of unique tests.
@@ -79,20 +80,27 @@ The local overall summary remains FAIL because of the three socket-permission
 errors; those errors were not skipped or converted into passes. The first CI
 summary and dashboard log are retained as `ci-first-summary.json` and
 `ci-first-dashboard.log`. That first CI run failed its old static baseline;
-its passing dashboard result does not imply a full CI pass for the newer source.
+its passing dashboard result was not used to declare the newer source passed.
+
+The final [clean CI summary](readiness-results/ci-verified/summary.json) records the
+exact published source commit and an overall **PASS**. The full logs remain in the
+[GitHub Actions artifact](https://github.com/visegrips70/Roadline/actions/runs/39617654298/artifacts/12354102888).
+The downloaded artifact's SHA-256 matches GitHub's artifact digest, recorded in `publication.json`.
+Its counts match the local focused, controls and safety counts; all 77 dashboard
+tests pass in CI. Subsequent report-only commits do not change the tested code.
 
 ## Remaining gates
 
-1. Complete clean CI for the latest published source, including the real
-   dashboard socket tests and static analysis. Passing automated static checks
-   does not establish complete MISRA compliance or vehicle safety certification.
-2. Read the installed Comma's current NAP revision, AGNOS version, Tesla/Pedal/
+Passing automated static checks does not establish complete MISRA compliance or
+vehicle safety certification. The remaining work is:
+
+1. Read the installed Comma's current NAP revision, AGNOS version, Tesla/Pedal/
    radar settings and calibration. The 2013 pre-AP Model S target is known;
    the exact installed software and current hardware configuration are not.
-3. Preserve the working installation/settings and verify recovery, then compile
+2. Preserve the working installation/settings and verify recovery, then compile
    the pinned candidate on the actual disconnected Comma 3X. Starting manager
    can automatically flash Panda firmware and requires a separate reviewed step.
-4. Validate boot, model execution, UI, monitoring, CAN health, driver override,
+3. Validate boot, model execution, UI, monitoring, CAN health, driver override,
    disengagement and explicit re-engagement before controlled-course checks.
 
 The private key `system/hardware/tici/id_rsa` remains excluded. No credentials,

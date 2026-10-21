@@ -5,6 +5,12 @@ offline tests do not establish device operation. Do not use the historical NAP
 installer URL as a Roadline installer. The private Roadline repository also cannot
 be assumed to work with an anonymous custom-installer URL.
 
+The source candidate is `369fc9d10f82789728f2a94ad6e1e2dd077dd8af` in
+`visegrips70/Roadline`. Its [clean validation run](https://github.com/visegrips70/Roadline/actions/runs/39617654298)
+passed the build, focused checks, controls, dashboard, complete safety suite and
+static analysis. This pins the software candidate for compatibility review;
+device compilation and operation have not yet been verified.
+
 ## Read the existing installation
 
 Use `tools/roadline/device_report.py` with the existing Comma's Python interpreter.
