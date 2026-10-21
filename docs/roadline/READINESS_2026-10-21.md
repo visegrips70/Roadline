@@ -1,10 +1,13 @@
 # Roadline continuation: October 21, 2026
 
-**Status: not cleared for installation or road use.** The source work is prepared
-locally. Uploading the continuation to the private `visegrips70/Roadline`
-repository, branch `roadline-install-readiness`, was rejected by automatic
-approval review. The reviewer requires explicit approval of that destination
-and the updated source/test/report payload in the current conversation.
+**Status: source uploaded; not cleared for installation or road use.** The
+continuation is published to the private `visegrips70/Roadline` repository on
+`roadline-install-readiness`. The source commit is
+`369fc9d10f82789728f2a94ad6e1e2dd077dd8af`.
+Its complete tree matches the locally tested commit; the mapping is in
+[`readiness-results/publication.json`](readiness-results/publication.json).
+The [clean CI run](https://github.com/visegrips70/Roadline/actions/runs/39617654298)
+is still pending. Device inventory, a Comma 3X build and hardware validation remain.
 
 ## Changes prepared
 
@@ -31,6 +34,20 @@ and the updated source/test/report payload in the current conversation.
   and never automatically publishes an installation/release branch.
 - Added a read-only device report and a guarded, build-only Comma 3X script.
   See [device preparation](COMMA_3X.md). Neither provides an activation shortcut.
+- Resolved all 77 previously reported static findings in the inherited safety
+  headers. Byte assembly, CRC and speed conversions now have explicit types;
+  hooks use single returns; local state has local scope; MG has its missing
+  declaration. Existing steering/Pedal limits, diagnostic allowlists and
+  forwarding decisions remain covered by the behavioral tests. No analysis
+  rules were suppressed. The checker report's stale command/path heading was
+  corrected; its list of checkers was unchanged.
+- Added sanitizer checks for CRC/SNA replacement, 98,304 legacy forwarding cases,
+  and 172,032 single-byte diagnostic mutations across speed/freshness states.
+  Each diagnostic case also checks rejection on the wrong bus and wrong length.
+  The tests cover the 40 mph threshold, 250 ms freshness boundary and timer wrap.
+- Made the validation runner block dependent tests if the native build fails,
+  preventing a stale compiled safety library from producing misleading passes.
+  Documentation-only pushes no longer restart the source commit's CI run.
 
 ## Evidence
 
@@ -42,39 +59,42 @@ revision inside the summary identifies the runtime code that was tested.
 
 | Check | Result |
 | --- | --- |
-| Full native desktop build | Passed |
-| Focused Roadline / pre-AP / monitoring / device-tool checks | 133 passed, 9 skipped |
+| Full native desktop build, including Panda ARM firmware targets | Passed |
+| Focused Roadline / pre-AP / monitoring / device-tool checks | 135 passed, 9 skipped |
 | Complete controls and planner suite | 553 passed, 1 skipped |
-| Firmware behavioral safety suite, excluding MISRA tests | 2,891 passed, 1,539 skipped |
-| Complete safety suite including MISRA mutation checks | 2,892 passed, 1,539 skipped, 1 failed (unchanged baseline static findings) |
-| Radar packet sanitizer test | 65,536 speed/counter cases passed |
-| Dashboard | 74 passed; 3 errors because AF_UNIX datagram sockets are denied by the local environment |
-| Static safety analysis | Failed: 77 remaining MISRA/style findings; the reported signed-overflow error is fixed |
-| Clean CI for this continuation | Blocked by upload approval; no passing CI result claimed |
+| Complete safety suite including MISRA mutation checks | 2,893 passed, 1,539 skipped |
+| Firmware packet/diagnostic sanitizer tests | Passed; includes 65,536 radar speed/counter cases |
+| Dashboard, local environment | 74 passed; 3 errors because AF_UNIX datagram sockets are denied locally |
+| Dashboard, first clean GitHub run | All 77 passed on published commit `21519fb`; dashboard source is unchanged |
+| Static safety analysis | Passed with pinned Cppcheck 2.17.1 and existing suppression policy |
+| Clean CI for latest source commit | Pending; no full CI pass claimed yet |
 | Comma 3X build, boot, CAN/firmware and controlled-course checks | Not performed |
 
 Counts overlap between suites and must not be added as a count of unique tests.
 Skipped tests are not passes. The complete all-safety run, including randomized
 MISRA mutation checks, is retained separately in `readiness-results/all-safety.log`.
-Its result and exit code are authoritative; passing a mutation check does not
-clear the failed baseline static analysis.
+Its result and exit code are authoritative. Mutation checks sample two cases;
+the unchanged baseline is always checked separately by the validation runner.
+The local overall summary remains FAIL because of the three socket-permission
+errors; those errors were not skipped or converted into passes. The first CI
+summary and dashboard log are retained as `ci-first-summary.json` and
+`ci-first-dashboard.log`. That first CI run failed its old static baseline;
+its passing dashboard result does not imply a full CI pass for the newer source.
 
 ## Remaining gates
 
-1. Review and resolve the 77 static findings in the inherited Tesla pre-AP,
-   Tesla legacy and MG safety headers. The unsigned packing fix removes the
-   demonstrated overflow but does not constitute full MISRA compliance.
-2. Publish the exact prepared source/tests/build scripts/reports to the private
-   Roadline readiness branch and run clean CI, including the real dashboard
-   socket tests and static safety analysis. No upstream repository is a target.
-3. Read the installed Comma's current NAP revision, AGNOS version, Tesla/Pedal/
+1. Complete clean CI for the latest published source, including the real
+   dashboard socket tests and static analysis. Passing automated static checks
+   does not establish complete MISRA compliance or vehicle safety certification.
+2. Read the installed Comma's current NAP revision, AGNOS version, Tesla/Pedal/
    radar settings and calibration. The 2013 pre-AP Model S target is known;
    the exact installed software and current hardware configuration are not.
-4. Preserve the working installation/settings and verify recovery, then compile
+3. Preserve the working installation/settings and verify recovery, then compile
    the pinned candidate on the actual disconnected Comma 3X. Starting manager
    can automatically flash Panda firmware and requires a separate reviewed step.
-5. Validate boot, model execution, UI, monitoring, CAN health, driver override,
+4. Validate boot, model execution, UI, monitoring, CAN health, driver override,
    disengagement and explicit re-engagement before controlled-course checks.
 
 The private key `system/hardware/tici/id_rsa` remains excluded. No credentials,
-vehicle logs, or calibration backups are included in the intended upload.
+vehicle logs, or calibration backups are included in the upload. No upstream
+repository or active vehicle installation has been modified.

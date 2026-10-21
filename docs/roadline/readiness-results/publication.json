@@ -1,0 +1,11 @@
+{
+  "repository": "visegrips70/Roadline",
+  "branch": "roadline-install-readiness",
+  "local_tested_commit": "9503e0019c4b9c5d1b782f797cdf39b1d43d8000",
+  "github_source_commit": "369fc9d10f82789728f2a94ad6e1e2dd077dd8af",
+  "identical_source_tree": "58dbf3e44ee4f35237d7c704f6ad6652d6c14c7e",
+  "ci_run_url": "https://github.com/visegrips70/Roadline/actions/runs/39617654298",
+  "ci_status": "pending",
+  "excluded_file": "system/hardware/tici/id_rsa",
+  "note": "Local and GitHub commit IDs differ because publication excludes private local history. Their complete source trees match. Later documentation-only commits do not change tested runtime code."
+}

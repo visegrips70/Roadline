@@ -1,5 +1,5 @@
 {
-  "revision": "c5a711e0b66f833a7415185401fee86cb6e389d2",
+  "revision": "9503e0019c4b9c5d1b782f797cdf39b1d43d8000",
   "working_tree_modified": false,
   "checks": [
     {
@@ -12,7 +12,7 @@
         "2"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 2.04
+      "elapsed_seconds": 6.24
     },
     {
       "name": "focused",
@@ -31,7 +31,7 @@
         "opendbc_repo/opendbc/safety/tests/test_tesla_preap.py"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 7.06
+      "elapsed_seconds": 8.81
     },
     {
       "name": "inherited-features",
@@ -45,7 +45,7 @@
         "selfdrive/controls/lib/tests"
       ],
       "exit_code": 0,
-      "elapsed_seconds": 54.51
+      "elapsed_seconds": 58.58
     },
     {
       "name": "dashboard",
@@ -71,8 +71,8 @@
         "0",
         "opendbc_repo/opendbc/safety/tests"
       ],
-      "exit_code": 1,
-      "elapsed_seconds": 99.47
+      "exit_code": 0,
+      "elapsed_seconds": 97.58
     },
     {
       "name": "misra-baseline",
@@ -80,8 +80,8 @@
         "bash",
         "opendbc_repo/opendbc/safety/tests/misra/test_misra.sh"
       ],
-      "exit_code": 2,
-      "elapsed_seconds": 19.11
+      "exit_code": 0,
+      "elapsed_seconds": 19.21
     }
   ],
   "status": "FAIL",

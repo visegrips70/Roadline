@@ -3,8 +3,8 @@
 A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.
 
 **Development source only. Not ready for installation or road use.**
-The desktop build and control tests pass. Static safety analysis, clean CI,
-and actual Comma 3X validation still have unresolved gates. No validated Roadline
+The desktop/Panda firmware build, control tests and static safety analysis pass.
+The latest clean CI run and actual Comma 3X validation remain gates. No validated Roadline
 installer is available. See [current readiness](docs/roadline/READINESS_2026-10-21.md)
 and [Comma 3X preparation](docs/roadline/COMMA_3X.md).
 

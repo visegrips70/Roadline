@@ -70,14 +70,14 @@ selfdrive/controls/lib/tests/test_unified_turn_v7.py ............        [ 98%]
 selfdrive/controls/lib/tests/test_unified_turn_v8.py ..........          [100%]
 
 ============================= slowest 10 durations =============================
-2.49s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_1::test_following_distance
-2.49s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_6::test_following_distance
-2.46s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_15::test_following_distance
-2.46s call     selfdrive/controls/tests/test_roadline_lane_simulation.py::TestLaneSimulation::test_straight_road_convergence_with_delay
-2.35s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_10::test_following_distance
-2.33s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_13::test_following_distance
-2.31s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_0::test_following_distance
-2.31s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_14::test_following_distance
-2.29s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_16::test_following_distance
-2.28s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_11::test_following_distance
-======================= 553 passed, 1 skipped in 53.40s ========================
+2.73s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_9::test_following_distance
+2.70s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_17::test_following_distance
+2.61s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_1::test_following_distance
+2.51s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_16::test_following_distance
+2.49s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_0::test_following_distance
+2.45s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_14::test_following_distance
+2.43s call     selfdrive/controls/tests/test_roadline_lane_simulation.py::TestLaneSimulation::test_straight_road_convergence_with_delay
+2.42s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_13::test_following_distance
+2.40s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_15::test_following_distance
+2.40s call     selfdrive/controls/tests/test_following_distance.py::TestFollowingDistance_12::test_following_distance
+======================= 553 passed, 1 skipped in 57.50s ========================
