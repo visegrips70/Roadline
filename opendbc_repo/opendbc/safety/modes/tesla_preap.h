@@ -391,7 +391,7 @@ static void tesla_preap_rx_hook(const CANPacket_t *msg) {
       preap_eas_speed_seen = true;
       uint32_t raw_speed = ((uint32_t)msg->data[5] << 8U) | msg->data[6];
       preap_eas_speed_ok = raw_speed < 6437U;
-      float speed = (raw_speed * 0.01f) * KPH_TO_MS;
+      float speed = ((float)raw_speed * 0.01f) * KPH_TO_MS;
       UPDATE_VEHICLE_SPEED(speed);
       vehicle_moving = speed > (0.5f * KPH_TO_MS);
     }

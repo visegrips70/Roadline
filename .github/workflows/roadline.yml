@@ -1,6 +1,11 @@
 name: Roadline development validation
 on:
   push:
+    # Recording results must not cancel/restart the source revision's build.
+    paths-ignore:
+      - 'docs/roadline/**'
+      - 'README.md'
+      - 'VALIDATION.md'
   pull_request:
   workflow_dispatch:
 permissions:
