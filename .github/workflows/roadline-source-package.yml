@@ -1,0 +1,36 @@
+name: Roadline source package
+on:
+  push:
+    branches: [roadline-branding, roadline-install-readiness]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: roadline-source-package-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+          lfs: false
+          persist-credentials: false
+      - name: Audit active branding
+        run: |
+          mkdir -p build/roadline-downloads
+          git grep -n -i -E 'philly[ _-]*fork|the philly' -- selfdrive system server tools launch*.sh > build/roadline-downloads/branding-audit.txt || test "$?" -eq 1
+      - name: Package exact development source
+        run: |
+          git archive --format=tar.gz --prefix=Roadline/ -o "build/roadline-downloads/Roadline-source-${GITHUB_SHA}.tar.gz" HEAD
+          printf '%s\n' "Roadline development source revision: ${GITHUB_SHA}" 'SOURCE SNAPSHOT ONLY: not a standalone comma installer or driving-approved build.' 'Git submodules and upstream Git LFS assets are not materialized in this source snapshot.' > build/roadline-downloads/README.txt
+          cd build/roadline-downloads
+          sha256sum Roadline-source-*.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Roadline-source-${{ github.sha }}
+          path: build/roadline-downloads
+          retention-days: 30
+          if-no-files-found: error
