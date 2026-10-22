@@ -31,9 +31,14 @@ PYTHON=/usr/local/venv/bin/python
 "$PYTHON" -c 'import sys; assert (3, 12, 3) <= sys.version_info < (3, 13)' \
   || fail "candidate requires Python 3.12.3 or newer within Python 3.12."
 mkdir -p build/roadline-device
+# An unsuccessful repeat must not leave an earlier success marker behind.
+rm -f build/roadline-device/built_commit.txt
 export PYTHONPATH="$ROOT:$ROOT/server"
 export PATH="/usr/local/venv/bin:$PATH"
 "$PYTHON" -m SCons -j2 --minimal 2>&1 | tee build/roadline-device/build.log
+"$PYTHON" tools/roadline/hardware_bundle.py --checkout "$ROOT" \
+  > build/roadline-device/hardware-bundle.json
 printf '%s\n' "$1" > build/roadline-device/built_commit.txt
 echo "Device compilation completed. The active installation has not been switched."
+echo "Panda H7 firmware, recovery bootstub and pedal/steering/radar support files inventoried."
 echo "Boot, CAN, override, disengagement, monitoring and rollback checks remain."

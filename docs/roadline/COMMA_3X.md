@@ -9,7 +9,13 @@ The source candidate is `369fc9d10f82789728f2a94ad6e1e2dd077dd8af` in
 `visegrips70/Roadline`. Its [clean validation run](https://github.com/visegrips70/Roadline/actions/runs/39617654298)
 passed the build, focused checks, controls, dashboard, complete safety suite and
 static analysis. This pins the software candidate for compatibility review;
-device compilation and operation have not yet been verified.
+the owner subsequently reported a successful build on the Comma 3X (exit 0).
+Roadline boot and operation have not been verified. A later reset/reinstall means
+the old candidate and recovery directories must be inventoried again.
+
+See [Panda, pedal, steering and radar installation](HARDWARE_INSTALL.md) for the
+component inventory, firmware handling, saved configuration and discrepancies
+between NAP's wiki and the inspected release.
 
 ## Read the existing installation
 
@@ -46,7 +52,9 @@ candidate checkout. The script rejects other hardware, an unexpected OS, a dirty
 or mismatched checkout, missing assets and the active installation directory.
 It runs the hardware's own minimal build and saves a log. It does not activate
 Roadline, start manager/pandad, install dependencies, update AGNOS, or flash the
-Panda. **No specific revision has been cleared for this step yet.**
+Panda. The updated build tool also records the required Panda firmware and
+pedal/steering/radar files before marking a build complete. The earlier device
+build of `369fc9d` predates that additional inventory check.
 
 ## Before activation
 
@@ -54,8 +62,9 @@ Preserve the known-working NAP software and its exact revision, `/data/params`,
 `/data/nap_params.json`, and the existing dashboard/configuration locally. Params
 may contain credentials, so keep the complete backup on your own device/computer;
 share only the allowlisted report. Establish a recovery method that remains usable
-if the UI cannot boot. No activation or rollback command is supplied until the
-actual installation has been inspected.
+if the UI cannot boot. A previous session supplied a guarded switch/rollback
+script, but its device-side copy and backup are unverified after the reset. Do
+not reuse its paths without checking the new installation first.
 
 Starting manager can automatically flash Panda firmware. After the device build,
 the first boot and firmware match, UI/dashboard imports, driver monitoring, CAN

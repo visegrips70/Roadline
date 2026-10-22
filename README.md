@@ -4,9 +4,12 @@ A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.
 
 **Development source only. Not ready for installation or road use.**
 The clean GitHub build, control/dashboard/safety tests and static analysis pass.
-Actual Comma 3X compatibility, build and hardware validation remain gates. No validated Roadline
+The owner reported a successful Comma 3X build of `369fc9d`; a successful
+Roadline boot and live hardware operation have not been verified. No validated Roadline
 installer is available. See [current readiness](docs/roadline/READINESS_2026-10-21.md)
-and [Comma 3X preparation](docs/roadline/COMMA_3X.md).
+and [Comma 3X preparation](docs/roadline/COMMA_3X.md). The
+[hardware installation review](docs/roadline/HARDWARE_INSTALL.md) covers the
+included Panda firmware, pedal/EPAS tools and Bosch radar support.
 
 Publication note: `system/hardware/tici/id_rsa` remains excluded. [SOURCE_MANIFEST.json](SOURCE_MANIFEST.json) records the initial publication and omission; the [current readiness report](docs/roadline/READINESS_2026-10-21.md) identifies subsequent source changes and their validation.
 
@@ -42,11 +45,12 @@ The software honors radar-enabled/disabled settings; this is not a radar repair.
 This version adds no iBooster control and cannot add friction-brake authority to
 an accelerator/regen-only installation.
 
-Compatibility with an individual installation still requires its current NAP
-branch/commit, Software screen, Tesla settings and hardware configuration. Before
-any future upgrade, preserve the existing settings/calibration and a verified
-rollback path. No device upgrade, firmware flashing or calibration changes have
-been performed as part of this work.
+The original NAP installation and settings were inventoried and a settings backup
+was retained. A Roadline start was requested after the successful device build;
+successful startup and Panda flashing were not confirmed. The owner subsequently
+reset the device and reports NAP installed again. Re-read the current installation
+before another switch; the contents of the old device-side recovery folders are
+unknown. Preserve settings/calibration and establish a usable recovery path.
 
 ## Development
 

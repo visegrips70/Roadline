@@ -7,8 +7,17 @@ continuation is published to the private `visegrips70/Roadline` repository on
 Its complete tree matches the locally tested commit; the mapping is in
 [`readiness-results/publication.json`](readiness-results/publication.json).
 The [clean CI run](https://github.com/visegrips70/Roadline/actions/runs/39617654298)
-passed every validation stage. Device inventory, a Comma 3X build and hardware
-validation remain. This is a development candidate, not an activated device release.
+passed every validation stage. The owner subsequently provided the device
+inventory and a successful Comma 3X build result. Boot and hardware validation
+remain. This is a development candidate, not a verified device release.
+
+**October 22 recovery update:** after requesting the first Roadline start, the
+owner reset the device and later reported NAP reinstalled. Roadline's successful
+boot was never established. External settings backup integrity was checked, but
+the surviving device directories and current settings are unknown. See the
+[hardware installation review](HARDWARE_INSTALL.md) for Panda, pedal, EPAS and
+radar requirements. Its new file-inventory tool has separate validation from the
+historical source-candidate CI results below.
 
 ## Changes prepared
 
@@ -69,7 +78,8 @@ revision inside the summary identifies the runtime code that was tested.
 | Dashboard, first clean GitHub run | All 77 passed on published commit `21519fb`; dashboard source is unchanged |
 | Static safety analysis | Passed with pinned Cppcheck 2.17.1 and existing suppression policy |
 | Clean CI for source commit `369fc9d` | Passed all six stages, including all 77 dashboard tests and static analysis |
-| Comma 3X build, boot, CAN/firmware and controlled-course checks | Not performed |
+| Comma 3X build of `369fc9d` | Owner-reported SCons completion and exit 0; build marker matched |
+| Roadline boot, live CAN/firmware and controlled-course checks | Unverified; device subsequently reset and NAP reinstalled |
 
 Counts overlap between suites and must not be added as a count of unique tests.
 Skipped tests are not passes. The complete all-safety run, including randomized
@@ -94,12 +104,11 @@ tests pass in CI. Subsequent report-only commits do not change the tested code.
 Passing automated static checks does not establish complete MISRA compliance or
 vehicle safety certification. The remaining work is:
 
-1. Read the installed Comma's current NAP revision, AGNOS version, Tesla/Pedal/
-   radar settings and calibration. The 2013 pre-AP Model S target is known;
-   the exact installed software and current hardware configuration are not.
-2. Preserve the working installation/settings and verify recovery, then compile
-   the pinned candidate on the actual disconnected Comma 3X. Starting manager
-   can automatically flash Panda firmware and requires a separate reviewed step.
+1. Re-read the Comma's current NAP revision, AGNOS version, Tesla/Pedal/radar
+   settings, calibration and surviving directories following the reset.
+2. Preserve the working installation/settings and verify recovery. Inventory any
+   surviving pinned build, or rebuild an inactive candidate as necessary. Starting
+   manager can automatically flash Panda firmware and requires a reviewed step.
 3. Validate boot, model execution, UI, monitoring, CAN health, driver override,
    disengagement and explicit re-engagement before controlled-course checks.
 
