@@ -21,8 +21,12 @@ https://github.com/commaai/openpilot#using-openpilot-in-a-car
 
 ## Repository and privacy
 
-The development repository is `visegrips70/Roadline`, currently private. Keep its
-visibility unchanged. The simple `installer.comma.ai/<owner>/<branch>` convention
+The owner has requested public access to `visegrips70/Roadline` so the comma can
+fetch future updates without a Mac. Audit the published files, reachable history,
+attachments and dependencies before changing visibility. Public source access
+does not itself create an installer or validate a release. See
+[public access and device updates](PUBLIC_ACCESS_AND_UPDATES.md).
+The simple `installer.comma.ai/<owner>/<branch>` convention
 must not be treated as a working Roadline link: the existing repository is not
 named openpilot and is not anonymously cloneable. Do not embed a personal access
 token, SSH private key, navigation pairing key, or device settings in an installer.
@@ -32,8 +36,9 @@ https://github.com/sshane/openpilot-installer-generator#aliases
 Preferred publication design: a separately audited release-only distribution
 repository, containing the flattened, tested runtime and required licenses, plus
 an explicit-repository AGNOS installer served over HTTPS. Public distribution
-requires a deliberate publication decision; this work does not publish code or
-change repository visibility. A genuinely private installer would instead need
+is separate from making the development source public. The owner has authorized
+public source access; a validated installable runtime is still outstanding.
+A genuinely private installer would instead need
 a designed enrollment/authentication flow, not a token pasted into a public URL.
 
 ## Checks implemented here

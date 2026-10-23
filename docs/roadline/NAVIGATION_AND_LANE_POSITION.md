@@ -8,8 +8,8 @@ turn incident, replay, clean build, and hardware acceptance are resolved.
 
 The dashboard uses the comma's GPS. It does not import a route from Tesla MCU2
 native navigation. On a phone or computer connected to the same network, open
-`http://<comma-IP>:7070/phone-nav`. The owner's last reported IP is
-`192.168.68.70`; check the device's network page if it changes.
+`http://<comma-IP>:7070/phone-nav`. Find the current IP on the device's network
+page; it may change between Wi-Fi networks or hotspots.
 
 On a fresh install, Roadline now creates the navigation pairing key during normal
 startup. It persists in `/data/roadline/navigation-pairing-key` and is copied into

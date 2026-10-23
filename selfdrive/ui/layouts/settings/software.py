@@ -73,6 +73,7 @@ class SoftwareLayout(Widget):
     self._scroller = Scroller([
       self._onroad_label,
       self._version_item,
+      button_item(lambda: tr("Built on NAP / openpilot"), lambda: tr("CREDITS"), callback=self._on_credits),
       self._download_btn,
       self._install_btn,
       self._branch_btn,
@@ -85,6 +86,13 @@ class SoftwareLayout(Widget):
 
   def _render(self, rect):
     self._scroller.render(rect)
+
+  def _on_credits(self):
+    text = tr("<p>Roadline is built on NAP (NotAutopilot), Philip's pre-AP work, and comma.ai openpilot.</p>"
+              "<p>The driving stack and most of the source are inherited from those projects and their contributors. Thank you.</p>"
+              "<p>Roadline adds its own adjustments, repairs and branding. It is independently maintained; upstream endorsement is not implied.</p>"
+              "<p>Full acknowledgments, source links and original licenses: CREDITS.md in the Roadline repository.</p>")
+    gui_app.push_widget(ConfirmDialog(text, tr("Close"), cancel_text="", rich=True))
 
   def _update_state(self):
     # Show/hide onroad warning
