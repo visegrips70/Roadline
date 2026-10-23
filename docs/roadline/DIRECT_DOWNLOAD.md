@@ -5,12 +5,26 @@ Roadline interface, and the post-reboot inspector confirmed the previous
 installation, exact launcher, all 30 compared settings, and all 3,892 original
 package files. Assistance and automatic updates remain disabled.
 
-Publication is being prepared for an **installation-test staging channel**.
-A passing publication workflow must create both `roadline-release-staging`
-(the complete runtime) and `roadline-installers` (the ARM64 ELF). Its report must
-verify anonymous access and the installer checksum before a URL is advertised.
-The intended URL is not live merely because this document names it:
-`https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer`.
+The **installation-test staging link is live**:
+
+https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer
+
+Use this URL at the comma's **Custom Software** setup screen. NAP does not have to
+be installed first: this downloads the complete Roadline runtime. The target is
+comma 3X on AGNOS 17.2. Keep the vehicle harness disconnected and use stable bench
+power during the first installation test. Do not engage assistance based on this
+publication result.
+
+[Publication workflow](https://github.com/visegrips70/Roadline/actions/runs/40017050346)
+passed package reconstruction, all 63 tooling tests, anonymous branch access, and
+the ARM64 installer download/checksum check. The runtime commit is
+`f72bd877ee3e6b43c644587f95f9df0a9bdc91c8`. The receipt is
+`release/roadline/candidates/2fbfa0c-publication.json`.
+
+A clean setup installation on the physical device has not yet been tested.
+Uninstall in this software requests an AGNOS system reset; preserve needed
+settings and recovery copies outside the device before using it. Publishing this
+link has not changed or reset the current device installation.
 
 The workflow reconstructs the untouched package from pinned public source and
 checksummed native build chunks. It verifies the complete payload hash before

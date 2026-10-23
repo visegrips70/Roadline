@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "status": "download_verified",
+  "source_revision": "2fbfa0c654230ead83596e2f6a474f8a8692f464",
+  "payload_sha256": "a93bec8362161c117c36139842c253cbb32bfb7135ac0bc3c7bb7137babdecea",
+  "runtime_commit": "f72bd877ee3e6b43c644587f95f9df0a9bdc91c8",
+  "installer_commit": "b7aa49379f49bb2d64d88f4531e5b2ee9bd88d9f",
+  "installer_url": "https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer",
+  "installer_sha256": "e2cdbe18ee902534c0b97ad898f604d884f76c77d86a578bd5333694cb623f61",
+  "installer_bytes": 2040440,
+  "workflow_run": "https://github.com/visegrips70/Roadline/actions/runs/40017050346",
+  "publication_commit": "831413c988ad38bff425cf149ab5c6c9d0a2d2f5",
+  "anonymous_download_verified": true,
+  "channel": "staging",
+  "purpose": "installation-test",
+  "assistance_toggle_on_install": 0,
+  "automatic_updates_enabled": false,
+  "clean_setup_verified": false,
+  "splash_playback": "deferred",
+  "road_ready": false
+}

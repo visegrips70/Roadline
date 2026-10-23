@@ -53,9 +53,17 @@ jobs:
           import json
           from pathlib import Path
           config = json.loads(Path('release/roadline/channels.json').read_text())
-          assert config['publication_enabled'] is False
-          assert all(c['installer_url'] is None for c in config['channels'].values())
-          print('No public installer or automatic promotion enabled.')
+          assert config['channels']['stable']['installer_url'] is None
+          staging = config['channels']['staging']
+          if config['publication_enabled']:
+            assert staging['status'] == 'installation-test'
+            assert staging['automatic_updates_enabled'] is False
+            assert staging['road_ready'] is False
+            assert staging['installer_url'] == 'https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer'
+            assert len(staging['installer_sha256']) == 64 and len(staging['release_commit']) == 40
+          else:
+            assert staging['installer_url'] is None
+          print('Staging is installation-test only; stable publication and automatic promotion remain disabled.')
           PY
       - name: Package release preparation tools, not an installer
         shell: bash
