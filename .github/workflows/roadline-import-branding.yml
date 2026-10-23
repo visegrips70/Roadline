@@ -39,6 +39,12 @@ jobs:
           if blob != 'ac6b2d4e1faa58dbf310db257ecbff425adcdc66':
             raise SystemExit('Legacy spinner differs from the inspected pinned Git blob.')
           module.OLD_IMAGES[path] = hashlib.sha256(raw).hexdigest()
+          original_run = module.run
+          def checked_run(*args, **kwargs):
+            if args == ('git', 'rm', '--', *module.OLD_IMAGES):
+              args = ('git', 'rm', '-f', '--', *module.OLD_IMAGES)
+            return original_run(*args, **kwargs)
+          module.run = checked_run
           try:
             module.main()
           except subprocess.CalledProcessError as exc:
