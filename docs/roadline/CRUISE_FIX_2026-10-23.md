@@ -212,3 +212,25 @@ failures now have separate messages. Regression tests reproduce the original
 `0775` failure and cover both modes, rejected modes and a permission change during
 service stop. The car-daemon correction itself is unchanged. Successful device
 application and the subsequent live passive-mode check remain pending.
+
+The operator subsequently applied the correction successfully with the expected
+new source hash and preserved `0775` permissions. A 15-second awake, parked
+observation confirmed `FirmwareQueryDone=1`, `ControlsReady=1`, assistance and
+pedal control disabled, and fresh valid Panda and car messages. Panda reported
+`noOutput`, controls disallowed, CAN ignition, no faults and no lost heartbeat;
+car state reported valid CAN, no timeout, zero speed and Park. This confirms the
+passive-startup handshake on this device. The single SPI counter reading does
+not establish an error rate or resolve the earlier communication observations.
+
+`tools/roadline/observe_parked_inputs.py` provides the next read-only, 45-second
+input capture. It subscribes to existing CAN/car/Panda streams, writes no Params,
+opens no Panda hardware handle and publishes no CAN. It requires current valid
+Park/zero-speed data, live noOutput/controls disallowed and all six assistance
+flags disabled throughout. Prompts cover rest, manual brake press/release,
+light accelerator press/release in Park, and gentle steering input. The report
+uses raw bus-0 brake/steering/factory-pedal messages and bus-2 pedal feedback,
+rejects malformed/checksum-invalid frames where checksums are defined, reports
+missing signals explicitly, and retains pedal status and counter observations.
+It does not interpret a pedal fault status as healthy or establish brake,
+steering-disengagement, longitudinal-control or actuation performance. Review
+the resulting input report before planning an active-control test.
