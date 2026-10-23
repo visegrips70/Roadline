@@ -1,3 +1,5 @@
+**Draft upload update:** Branding source is now on this branch; the three exact binary assets remain pending. See [upload status](BRANDING_UPLOAD_STATUS.md). The installer is still disabled.
+
 # Roadline direct-download preparation
 
 Status: preparation tooling, not a live installer or device-ready release.

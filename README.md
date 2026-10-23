@@ -1,3 +1,7 @@
+# Draft branding upload — not installable
+
+The branding source is uploaded, but the approved PNG/MP4 files are not yet in GitHub. See [pending media and checks](docs/roadline/BRANDING_UPLOAD_STATUS.md).
+
 # Roadline
 
 A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.

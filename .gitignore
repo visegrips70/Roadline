@@ -92,3 +92,6 @@ build/
 .context/
 PLAN.md
 TASK.md
+
+# Bundle the approved Roadline startup animation with development source.
+!selfdrive/assets/roadline/startup.mp4

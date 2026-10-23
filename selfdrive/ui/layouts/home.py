@@ -13,7 +13,7 @@ from openpilot.selfdrive.ui.widgets.exp_mode_button import ExperimentalModeButto
 from openpilot.selfdrive.ui.widgets.prime import PrimeWidget
 from openpilot.selfdrive.ui.widgets.setup import SetupWidget
 from openpilot.system.ui.lib.text_measure import measure_text_cached
-from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos
+from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos, ASSETS_DIR
 from openpilot.system.ui.lib.multilang import tr, trn
 from openpilot.system.ui.widgets.label import gui_label
 from openpilot.system.ui.widgets import Widget
@@ -73,8 +73,9 @@ class HomeLayout(Widget):
     self._setup_widget = SetupWidget()
 
     self._exp_mode_button = ExperimentalModeButton()
-    # PHILLYFORK_OFFROAD_V0_2: home-only wallpaper, never drawn onroad.
-    self._phillyfork_bg = None  # lazy texture: only loaded when HOME is rendered
+    # Roadline branding: home-only wallpaper, never drawn onroad.
+    self._roadline_bg = None  # lazy texture: only loaded when HOME is rendered
+    self._roadline_bg_attempted = False
     self._setup_callbacks()
 
   def show_event(self):
@@ -141,7 +142,7 @@ class HomeLayout(Widget):
       self.last_refresh = current_time
 
     if self.current_state == HomeLayoutState.HOME:
-      self._render_phillyfork_backdrop(rect)
+      self._render_roadline_backdrop(rect)
     self._render_header()
 
     # Render content based on current state
@@ -206,7 +207,7 @@ class HomeLayout(Widget):
 
   def _render_header(self):
     font = gui_app.font(FontWeight.MEDIUM)
-    rl.draw_rectangle_rounded(self.routes_rect, 0.3, 10, rl.Color(75, 95, 255, 255) if self.current_state == HomeLayoutState.ROUTES else rl.Color(54, 77, 239, 255))
+    rl.draw_rectangle_rounded(self.routes_rect, 0.3, 10, rl.Color(39, 160, 79, 255) if self.current_state == HomeLayoutState.ROUTES else rl.Color(20, 115, 53, 255))
     gui_label(self.routes_rect, 'ROUTES', 34, rl.WHITE)
 
     version_text_width = 400
@@ -216,7 +217,7 @@ class HomeLayout(Widget):
       version_text_width -= self.update_notif_rect.width
 
       # Highlight if currently viewing updates
-      highlight_color = rl.Color(75, 95, 255, 255) if self.current_state == HomeLayoutState.UPDATE else rl.Color(54, 77, 239, 255)
+      highlight_color = rl.Color(39, 160, 79, 255) if self.current_state == HomeLayoutState.UPDATE else rl.Color(20, 115, 53, 255)
       rl.draw_rectangle_rounded(self.update_notif_rect, 0.3, 10, highlight_color)
 
       text = tr("UPDATE")
@@ -247,27 +248,26 @@ class HomeLayout(Widget):
                                 version_text_width, self.header_rect.height)
     gui_label(version_rect, self._version_text, 48, rl.WHITE, alignment=rl.GuiTextAlignment.TEXT_ALIGN_RIGHT)
 
-  def _render_phillyfork_backdrop(self, rect: rl.Rectangle):
-    # Offroad HOME only. Cover-crop to avoid distorting the road artwork.
-    if self._phillyfork_bg is None:
-      self._phillyfork_bg = gui_app.texture("images/phillyfork_offroad_road.png", 1672, 941)
-    tex = self._phillyfork_bg
+  def _render_roadline_backdrop(self, rect: rl.Rectangle):
+    # Offroad HOME only. Contain (not crop) the approved logo without distortion.
+    rl.draw_rectangle_rec(rect, rl.BLACK)
+    if not self._roadline_bg_attempted:
+      self._roadline_bg_attempted = True
+      try:
+        if ASSETS_DIR.joinpath("roadline/startup_still.png").is_file():
+          self._roadline_bg = gui_app.texture("roadline/startup_still.png")
+      except Exception:
+        self._roadline_bg = None  # Branding must never prevent access to settings.
+    tex = self._roadline_bg
     if not tex or tex.width <= 0 or tex.height <= 0 or rect.width <= 0 or rect.height <= 0:
       return
-    source_ratio = tex.width / tex.height
-    target_ratio = rect.width / rect.height
-    if source_ratio > target_ratio:
-      crop_h = float(tex.height)
-      crop_w = crop_h * target_ratio
-      crop_x, crop_y = (tex.width - crop_w) / 2, 0
-    else:
-      crop_w = float(tex.width)
-      crop_h = crop_w / target_ratio
-      crop_x, crop_y = 0, (tex.height - crop_h) / 2
-    source = rl.Rectangle(crop_x, crop_y, crop_w, crop_h)
-    rl.draw_texture_pro(tex, source, rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
-    # Legibility overlay; leaves the neon-road scene visible.
-    rl.draw_rectangle_rec(rect, rl.Color(1, 8, 20, 112))
+    scale = min(rect.width / tex.width, rect.height / tex.height)
+    width, height = tex.width * scale, tex.height * scale
+    source = rl.Rectangle(0, 0, tex.width, tex.height)
+    dest = rl.Rectangle(rect.x + (rect.width - width) / 2, rect.y + (rect.height - height) / 2, width, height)
+    rl.draw_texture_pro(tex, source, dest, rl.Vector2(0, 0), 0.0, rl.WHITE)
+    # Darken decoration behind the unchanged interactive cards and alerts.
+    rl.draw_rectangle_rec(rect, rl.Color(0, 8, 3, 165))
 
   def _render_home_content(self):
     self._render_left_column()
@@ -296,18 +296,18 @@ class HomeLayout(Widget):
 
   def _render_left_column(self):
     rect = self.left_column_rect
-    rl.draw_rectangle_rounded(rect, .035, 12, rl.Color(32, 180, 232, 190))
+    rl.draw_rectangle_rounded(rect, .035, 12, rl.Color(33, 150, 71, 190))
     card_inset = rl.Rectangle(rect.x + 2, rect.y + 2, rect.width - 4, rect.height - 4)
-    rl.draw_rectangle_rounded(card_inset, .035, 12, rl.Color(12, 26, 43, 226))
+    rl.draw_rectangle_rounded(card_inset, .035, 12, rl.Color(8, 20, 12, 226))
     title = rl.Rectangle(rect.x + 44, rect.y + 12, rect.width - 88, 70)
-    gui_label(title, 'NAP', 55, rl.WHITE, font_weight=FontWeight.BOLD)
+    gui_label(title, 'ROADLINE', 55, rl.WHITE, font_weight=FontWeight.BOLD)
     subtitle = rl.Rectangle(rect.x + 44, rect.y + 75, rect.width - 88, 45)
-    gui_label(subtitle, 'THE PHILLY FORK', 31, rl.Color(55, 213, 255, 255), font_weight=FontWeight.BOLD)
+    gui_label(subtitle, 'DRIVER ASSISTANCE', 31, rl.Color(70, 195, 103, 255), font_weight=FontWeight.BOLD)
     hint = rl.Rectangle(rect.x + 44, rect.y + 118, rect.width - 88, 45)
-    gui_label(hint, 'Saved destinations - tap to navigate', 28, rl.Color(198, 221, 232, 255))
+    gui_label(hint, 'Saved destinations - tap to navigate', 28, rl.Color(210, 228, 215, 255))
     pulse_alpha = 145 + int(40 * (0.5 + 0.5 * math.sin(time.monotonic() * 1.2)))
     rl.draw_rectangle_rec(rl.Rectangle(rect.x + 44, rect.y + 170, rect.width - 88, 3),
-                          rl.Color(25, 195, 245, pulse_alpha))
+                          rl.Color(39, 175, 79, pulse_alpha))
     self.home_route_rows = []
     if not self.route_presets:
       empty = rl.Rectangle(rect.x + 44, rect.y + 195, rect.width - 88, 100)
@@ -315,9 +315,9 @@ class HomeLayout(Widget):
     for index, preset in enumerate(self.route_presets[:4]):
       row = rl.Rectangle(rect.x + 40, rect.y + 180 + index * 124, rect.width - 80, 108)
       self.home_route_rows.append(row)
-      rl.draw_rectangle_rounded(row, .1, 10, rl.Color(42, 184, 232, 180))
+      rl.draw_rectangle_rounded(row, .1, 10, rl.Color(45, 155, 78, 180))
       row_inset = rl.Rectangle(row.x + 2, row.y + 2, row.width - 4, row.height - 4)
-      rl.draw_rectangle_rounded(row_inset, .1, 10, rl.Color(18, 45, 71, 238))
+      rl.draw_rectangle_rounded(row_inset, .1, 10, rl.Color(12, 34, 20, 238))
       name = rl.Rectangle(row.x + 32, row.y + 6, row.width - 64, 55)
       label = rl.Rectangle(row.x + 32, row.y + 56, row.width - 64, 42)
       gui_label(name, str(preset.get('name', 'Destination'))[:35], 42, rl.WHITE, font_weight=FontWeight.BOLD)
@@ -361,6 +361,6 @@ class HomeLayout(Widget):
     self._prev_alerts_present = alerts_present
 
   def _get_version_text(self) -> str:
-    brand = "openpilot"
+    brand = "Roadline"
     description = self.params.get("UpdaterCurrentDescription")
     return f"{brand} {description}" if description else brand

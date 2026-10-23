@@ -375,7 +375,7 @@ class NAPLayout(Widget):
     self._reset_defaults_btn = button_item(
       "Reset to Defaults",
       "Reset",
-      description="Reset all NAP settings to factory defaults. This cannot be undone.",
+      description="Reset all Roadline settings to factory defaults. This cannot be undone.",
       callback=self._on_reset_defaults,
     )
     self._reset_defaults_btn.action_item.set_enabled(ui_state.is_offroad)
@@ -593,7 +593,7 @@ class NAPLayout(Widget):
 
     content = (
       "<h1>Reset to Defaults</h1><br>"
-      + "<p>This will reset all NAP settings to their factory default values. "
+      + "<p>This will reset all Roadline settings to their factory default values. "
       + "This action cannot be undone.</p>"
     )
     dlg = ConfirmDialog(content, "Reset All", rich=True, callback=confirm_callback)
