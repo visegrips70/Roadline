@@ -36,6 +36,6 @@ jobs:
         run: python -m pip install pytest==8.4.2 pycapnp==2.1.0
       - name: Test startup and file transactions without device services
         run: |
-          PYTHONPATH="$PWD" python -m pytest -c /dev/null --confcutdir=tools/roadline/tests \
+          PYTHONPATH="$PWD" python -m pytest -c /dev/null --rootdir="$PWD" -p no:cacheprovider --confcutdir=tools/roadline/tests \
             tools/roadline/tests/test_passive_startup.py \
             tools/roadline/tests/test_apply_passive_startup.py -q

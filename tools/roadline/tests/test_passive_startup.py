@@ -10,7 +10,7 @@ from unittest.mock import Mock  # noqa: TID251 - only transport and persistence 
 
 import pytest
 
-from opendbc.car import structs
+from cereal import car as structs
 
 
 class TestPassiveStartup:
