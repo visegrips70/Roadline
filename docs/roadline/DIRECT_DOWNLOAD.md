@@ -1,3 +1,5 @@
+**Native build tooling:** An explicit Roadline staging installer target and inactive-checkout packager are now implemented. See [native installer build](NATIVE_INSTALLER_BUILD.md). They still require a comma 3X build and device validation; no live URL is enabled.
+
 **Draft repair update:** Branding source and all three exact approved binary assets are included. See [upload status](BRANDING_UPLOAD_STATUS.md). The installer is still disabled.
 
 # Roadline direct-download preparation
@@ -88,9 +90,8 @@ intentionally rejects expiring query-token URLs; choose a stable hosting endpoin
    pushes to comma.ai's repository. Do not use the destructive cleanup in
    `release/build_stripped.sh` against a working installation either.
 3. Prepare a separate immutable runtime payload, flatten submodules, materialize
-   required LFS assets, preserve licenses, and remove private data. A native
-   builder/packager and explicit-repository installer are still to be implemented
-   and validated. Required fonts/assets come from the pinned upstream dependencies.
+   required LFS assets, preserve licenses, and remove private data. The native builder/packager and explicit-repository staging installer are
+   implemented; native build and device validation remain outstanding. Required fonts/assets come from the pinned upstream dependencies.
 4. Validate exact-payload bench boot, startup graphics, settings restoration and
    rollback; record evidence. Hardware checks are not replaced by unit tests.
 5. After a privacy/licensing review and publication approval, serve the installer

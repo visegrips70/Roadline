@@ -8,6 +8,11 @@ on:
       - 'tools/roadline/test_download_release.py'
       - 'tools/roadline/verify_install_url.py'
       - 'tools/roadline/test_verify_install_url.py'
+      - 'tools/roadline/package_native_release.py'
+      - 'tools/roadline/test_package_native_release.py'
+      - 'tools/roadline/build_installer_on_device.sh'
+      - 'selfdrive/ui/installer/**'
+      - 'selfdrive/ui/SConscript'
       - 'release/roadline/**'
       - '.github/workflows/roadline-download-prep.yml'
   workflow_dispatch:
@@ -32,6 +37,8 @@ jobs:
           mkdir -p build/roadline-download-prep
           python3 -m unittest discover -s tools/roadline -p test_download_release.py -v 2>&1 | tee build/roadline-download-prep/release-tests.txt
           python3 -m unittest discover -s tools/roadline -p test_verify_install_url.py -v 2>&1 | tee build/roadline-download-prep/url-tests.txt
+          python3 -m unittest discover -s tools/roadline -p test_package_native_release.py -v
+          bash -n tools/roadline/build_installer_on_device.sh
           python3 -m py_compile tools/roadline/download_release.py tools/roadline/verify_install_url.py
           python3 - <<'PY'
           import json
@@ -47,7 +54,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import zipfile
-          paths = [Path('tools/roadline') / name for name in ('download_release.py', 'test_download_release.py', 'verify_install_url.py', 'test_verify_install_url.py')]
+          paths = [Path('tools/roadline') / name for name in ('download_release.py', 'test_download_release.py', 'verify_install_url.py', 'test_verify_install_url.py', 'package_native_release.py', 'test_package_native_release.py', 'build_installer_on_device.sh')]
           paths += [Path('docs/roadline/DIRECT_DOWNLOAD.md'), Path('release/roadline/channels.json')]
           with zipfile.ZipFile('build/roadline-download-prep/Roadline_Direct_Download_Preparation.zip', 'w', zipfile.ZIP_DEFLATED) as z:
             for path in paths:

@@ -19,7 +19,11 @@ std::string get_str(std::string const s) {
 }
 
 // Leave some extra space for the fork installer
+#ifdef ROADLINE_INSTALLER
+const std::string GIT_URL = "https://github.com/visegrips70/Roadline.git";
+#else
 const std::string GIT_URL = get_str("https://github.com/commaai/openpilot.git" "?                                                                ");
+#endif
 const std::string BRANCH_STR = get_str(BRANCH "?                                                                ");
 
 #define GIT_SSH_URL "git@github.com:commaai/openpilot.git"
@@ -126,11 +130,16 @@ int doInstall() {
   run("rm -rf " TMP_INSTALL_PATH);
 
   // do the install
+#ifdef ROADLINE_INSTALLER
+  // An upstream cache may have a different origin. Always clone our release.
+  return freshClone();
+#else
   if (util::file_exists(INSTALL_PATH) && util::file_exists(VALID_CACHE_PATH)) {
     return cachedFetch(INSTALL_PATH);
   } else {
     return freshClone();
   }
+#endif
 }
 
 int freshClone() {
@@ -195,6 +204,14 @@ void cloneFinished(int exitCode) {
   run(("git reset --hard origin/" + migrated_branch).c_str());
   run("git submodule update --init");
 
+#ifdef ROADLINE_INSTALLER
+  // A source branch is not a runnable release. Check before replacing anything.
+  run("test -f " TMP_INSTALL_PATH "/prebuilt && "
+      "test -f " TMP_INSTALL_PATH "/roadline_release.json && "
+      "test -x " TMP_INSTALL_PATH "/system/camerad/camerad && "
+      "test -x " TMP_INSTALL_PATH "/launch_openpilot.sh");
+#endif
+
   // move into place
   run(("rm -f " + VALID_CACHE_PATH).c_str());
   run(("rm -rf " + INSTALL_PATH).c_str());
@@ -219,6 +236,15 @@ void cloneFinished(int exitCode) {
   run(("cd " + INSTALL_PATH + " && "
       "git remote set-url origin --push " GIT_SSH_URL " && "
       "git config --replace-all remote.origin.fetch \"+refs/heads/*:refs/remotes/origin/*\"").c_str());
+#endif
+
+#ifdef ROADLINE_INSTALLER
+  // Staging starts with assistance and automatic updates disabled for bench checks.
+  run("mkdir -p /data/params/d");
+  run("printf 0 > /data/params/d/.roadline-enabled && "
+      "mv /data/params/d/.roadline-enabled /data/params/d/OpenpilotEnabledToggle");
+  run("printf 1 > /data/params/d/.roadline-updates && "
+      "mv /data/params/d/.roadline-updates /data/params/d/DisableUpdates");
 #endif
 
   // write continue.sh
