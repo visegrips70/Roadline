@@ -127,7 +127,9 @@ class CarController(CarControllerBase):
       self.steering_takeover_latched = False
     if not CC.enabled and not CS.cruiseEnabled:
       self.steering_takeover_latched = False
-    if driver_pulling:
+    # Ordinary manual steering with Roadline fully off is not a takeover.
+    # In particular, it must not cancel independently selected stock cruise.
+    if driver_pulling and (CC.enabled or CS.cruiseEnabled):
       self.steering_takeover_latched = True
 
     if not hasattr(self, "turn_direction_guard"):

@@ -146,6 +146,33 @@ class TeslaTakeover(unittest.TestCase):
     self.tick(100)
     self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
 
+  def test_manual_steering_when_roadline_is_off_leaves_stock_cruise_alone(self):
+    from opendbc.car.tesla.preap.stock_cc_spoofer import StockCCSpoofer
+    self.c.stock_cc = StockCCSpoofer()
+    self.cs.di_cruise_state = 'ENABLED'
+    self.cs.msg_stw_actn_req = {'MC_STW_ACTN_RQ': 3}
+    self.cs.preap_cc_cancel_needed = self.cs.preap_cc_engage_needed = False
+    self.cc.enabled = self.cc.latActive = self.cs.cruiseEnabled = False
+    self.cs.out.steeringPressed = True
+    self.tick(30)
+    self.c.tesla_can.create_action_request.assert_not_called()
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
+
+  def test_takeover_during_pending_application_enable_still_cancels_stock_cruise(self):
+    from opendbc.car.tesla.preap.stock_cc_spoofer import StockCCSpoofer
+    from opendbc.car.tesla.values import CruiseButtons
+    self.c.stock_cc = StockCCSpoofer()
+    self.cs.di_cruise_state = 'ENABLED'
+    self.cs.msg_stw_actn_req = {'MC_STW_ACTN_RQ': 3}
+    self.cs.preap_cc_cancel_needed = self.cs.preap_cc_engage_needed = False
+    self.cc.enabled = self.cc.latActive = False
+    self.cs.cruiseEnabled = True
+    self.cs.out.steeringPressed = True
+    self.tick(30)
+    calls = self.c.tesla_can.create_action_request.call_args_list
+    self.assertEqual(len(calls), 3)
+    self.assertTrue(all(call.args[0] == CruiseButtons.CANCEL for call in calls))
+
   def test_recorded_approach_does_not_reacquire_without_fresh_engagement(self):
     samples = json.loads((Path(__file__).parent / "fixtures/steering_takeover_291.json").read_text())
     was_latched = False
