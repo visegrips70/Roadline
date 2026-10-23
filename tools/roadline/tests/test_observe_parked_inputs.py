@@ -36,6 +36,8 @@ def test_brake_uses_raw_status_and_ignores_wrong_bus():
                               (0x20a, bytes([12]) + bytes(7), 2)])
   record = capture.summary(10)['BrakeMessage bus 0 (0x20a)']
   assert record['received'] == 2
+  assert record['bad_checksum'] is None
+  assert record['checksum_validation'] == 'not_defined_in_dbc'
   assert record['signals']['driverBrakeStatus']['observed'] == [1, 2]
 
 
@@ -46,7 +48,8 @@ def test_steering_and_factory_pedal_decode_using_runtime_dbc():
   for name, fields in [('EPAS_sysStatus', {'EPAS_torsionBarTorque': 2.0, 'EPAS_internalSAS': 15.0,
                                           'EPAS_handsOnLevel': 2}), ('DI_torque1', {'DI_pedalPos': 20.0})]:
     address, data, bus = packer.make_can_msg(name, 0, fields)
-    data = data[:-1] + bytes([((address & 255) + (address >> 8) + sum(data[:-1])) & 255])
+    if name == 'EPAS_sysStatus':
+      data = data[:-1] + bytes([((address & 255) + (address >> 8) + sum(data[:-1])) & 255])
     frames.append((address, data, bus))
   capture = Capture()
   capture.feed(10_000_000_000, frames)
@@ -54,6 +57,41 @@ def test_steering_and_factory_pedal_decode_using_runtime_dbc():
   assert result['EPAS_sysStatus bus 0 (0x370)']['signals']['EPAS_torsionBarTorque']['last'] == 2.0
   assert result['EPAS_sysStatus bus 0 (0x370)']['signals']['EPAS_internalSAS']['last'] == pytest.approx(15.0, abs=.001)
   assert result['DI_torque1 bus 0 (0x108)']['signals']['DI_pedalPos']['last'] == 20.0
+  assert result['DI_torque1 bus 0 (0x108)']['checksum_validation'] == 'not_verified'
+
+
+def test_recorded_factory_pedal_format_is_observed_without_false_checksum_failure():
+  capture = Capture()
+  # Received 0x108 data from the earlier capture; the additive residual is 7,
+  # not the 9 assumed by the old address-sum check. No vehicle identifiers.
+  frames = [bytes.fromhex(raw) for raw in ('14401400eeff005c', '14601400eeff007c', '14801400eeff009c')]
+  capture.feed(10_000_000_000, [(0x108, data, 0) for data in frames])
+  result = capture.summary(10)['DI_torque1 bus 0 (0x108)']
+  assert result['bad_checksum'] is None
+  assert result['checksum_validation'] == 'not_verified'
+  assert result['checksum_additive_residuals'] == {'0x07': 3}
+  assert result['signals']['DI_pedalPos']['samples'] == 3
+  assert result['signals']['DI_pedalPos']['last'] == 0
+
+
+def test_unknown_factory_checksum_residual_is_reported_without_claiming_integrity():
+  capture = Capture()
+  data = bytearray.fromhex('14401400eeff005c')
+  data[-1] ^= 1
+  capture.feed(10_000_000_000, [(0x108, bytes(data), 0)])
+  result = capture.summary(10)['DI_torque1 bus 0 (0x108)']
+  assert result['checksum_validation'] == 'not_verified'
+  assert result['bad_checksum'] is None
+  assert result['checksum_additive_residuals'] == {'0x08': 1}
+
+
+def test_bad_steering_checksum_still_rejected():
+  capture = Capture()
+  capture.feed(10_000_000_000, [(0x370, bytes(8), 0)])
+  result = capture.summary(10)['EPAS_sysStatus bus 0 (0x370)']
+  assert result['bad_checksum'] == 1
+  assert result['checksum_validation'] == 'address_sum'
+  assert result['signals']['EPAS_torsionBarTorque'] is None
 
 
 @pytest.mark.parametrize('raw,field', [('01dd00ea5270', 'bad_checksum'), ('01dd00ea52', 'bad_length')])

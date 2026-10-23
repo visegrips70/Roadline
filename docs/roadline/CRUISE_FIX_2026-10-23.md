@@ -234,3 +234,32 @@ missing signals explicitly, and retains pedal status and counter observations.
 It does not interpret a pedal fault status as healthy or establish brake,
 steering-disengagement, longitudinal-control or actuation performance. Review
 the resulting input report before planning an active-control test.
+
+The operator's first 45-second input capture observed raw brake status 1/2 and
+returned to 1, changing steering angle/torque, and 4,395 fresh bus-2 pedal
+messages. Both pedal sensor channels responded, all 4,394 counter transitions
+were consecutive, and the pedal status remained 5 (`FAULT_TIMEOUT`). This is
+consistent with the current noOutput/no-command condition; pedal fault clearing
+and actuation remain untested. EPAS reported status 0 (`EAC_INHIBITED`) and error
+4 (`EAC_ERROR_TMP_FAULT`), so responding steering sensors do not establish
+steering-control availability or a successful takeover/disengagement test.
+
+The capture helper incorrectly rejected every factory-pedal `DI_torque1` frame
+by assuming the same address-sum checksum as EPAS/pedal feedback. Reinspection of
+the earlier private recording found a stable additive residual of 0x07 in all
+58,848 factory-pedal frames, versus 0x09 assumed from address 0x108. This observation
+is not a verified general checksum specification. The helper now decodes those
+raw diagnostic values with `checksum_validation=not_verified` and
+`bad_checksum=null`, and reports the observed residual distribution. It no longer
+labels them as corrupted CAN. BrakeMessage similarly reports checksum checking
+as not defined by the DBC. EPAS and interceptor checksum rejection remains in
+place. No runtime decoder, Panda safety hook or actuator logic was changed.
+
+The corrected helper also reports EPAS steering-fault/reduced-assist bits and
+offers `--accelerator-only` for a 20-second parked repeat with the same passive
+guards. Three new regressions cover captured factory-pedal bytes, an unknown
+residual without claiming integrity, and rejection of a bad steering checksum.
+All 76 focused tests pass locally. Offline replay recovered all 58,848
+factory-pedal observations (0 to 40 percent in the earlier recording), while
+14,712 EPAS and 57,472 interceptor messages passed their existing checksum checks.
+The earlier recording does not replace the current parked accelerator repeat.

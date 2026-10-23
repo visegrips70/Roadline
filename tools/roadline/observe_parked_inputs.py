@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Read-only Pre-AP input capture. Subscribes to messages; never sends CAN or writes Params."""
+import argparse
+from collections import Counter
 import json
 import math
 from pathlib import Path
@@ -11,9 +13,14 @@ SPECS = {
   (0, 'BrakeMessage'): ('driverBrakeStatus',),
   (0, 'DI_torque1'): ('DI_pedalPos',),
   (0, 'EPAS_sysStatus'): ('EPAS_torsionBarTorque', 'EPAS_internalSAS', 'EPAS_handsOnLevel',
-                         'EPAS_eacStatus', 'EPAS_eacErrorCode'),
+                         'EPAS_eacStatus', 'EPAS_eacErrorCode', 'EPAS_steeringFault', 'EPAS_steeringReduced'),
   (2, 'GAS_SENSOR'): ('INTERCEPTOR_GAS', 'INTERCEPTOR_GAS2', 'STATE', 'IDX'),
 }
+# The generic address-sum rule was verified for these messages, not DI_torque1.
+# Earlier 2013 vehicle captures of DI_torque1 have a stable residual of 0x07,
+# instead of 0x09 from address 0x108. Report that evidence without declaring a
+# checksum algorithm verified or altering any runtime parser/safety checks.
+CHECKSUM_MESSAGES = {'EPAS_sysStatus', 'GAS_SENSOR'}
 
 
 def require_parked(sm, params, now):
@@ -45,7 +52,8 @@ class Capture:
     for (bus, name), signals in SPECS.items():
       msg = self.parsers[bus].dbc.name_to_msg[name]
       self.records[(bus, msg.address)] = dict(name=name, size=msg.size, received=0,
-          bad_length=0, bad_checksum=0, last_time=None, values={s: [] for s in signals})
+          bad_length=0, bad_checksum=0 if name in CHECKSUM_MESSAGES else None,
+          checksum_residuals=Counter(), last_time=None, values={s: [] for s in signals})
 
   def feed(self, timestamp, frames):
     accepted = []
@@ -57,9 +65,9 @@ class Capture:
       if len(data) != record['size']:
         record['bad_length'] += 1
         continue
-      # These three Tesla messages carry an additive checksum in the last byte.
-      # BrakeMessage has no checksum signal in tesla_preap.dbc.
-      if record['name'] != 'BrakeMessage' and data[-1] != ((address & 255) + (address >> 8) + sum(data[:-1])) & 255:
+      if record['name'] == 'DI_torque1':
+        record['checksum_residuals'][(data[-1] - sum(data[:-1])) & 255] += 1
+      if record['name'] in CHECKSUM_MESSAGES and data[-1] != ((address & 255) + (address >> 8) + sum(data[:-1])) & 255:
         record['bad_checksum'] += 1
         continue
       accepted.append((address, data, bus))
@@ -78,19 +86,26 @@ class Capture:
         signals[signal] = None if not values else dict(samples=len(values),
             first=round(values[0], 4), last=round(values[-1], 4),
             min=round(min(values), 4), max=round(max(values), 4))
-        if values and signal in ('driverBrakeStatus', 'STATE', 'IDX', 'EPAS_handsOnLevel', 'EPAS_eacStatus', 'EPAS_eacErrorCode'):
+        if values and signal in ('driverBrakeStatus', 'STATE', 'IDX', 'EPAS_handsOnLevel', 'EPAS_eacStatus', 'EPAS_eacErrorCode',
+                                 'EPAS_steeringFault', 'EPAS_steeringReduced'):
           signals[signal]['observed'] = sorted(set(values))
         if values and signal == 'IDX':
           signals[signal]['consecutive_steps'] = sum(int(b) == (int(a) + 1) % 16 for a, b in zip(values, values[1:], strict=False))
           signals[signal]['other_steps'] = len(values) - 1 - signals[signal]['consecutive_steps']
       result[f"{record['name']} bus {bus} ({address:#x})"] = dict(
           received=record['received'], bad_length=record['bad_length'], bad_checksum=record['bad_checksum'],
+          checksum_validation=('address_sum' if record['name'] in CHECKSUM_MESSAGES else
+                               'not_verified' if record['name'] == 'DI_torque1' else 'not_defined_in_dbc'),
+          checksum_additive_residuals={f'{seed:#04x}': count for seed, count in sorted(record['checksum_residuals'].items())},
           age_seconds=None if record['last_time'] is None else round(now - record['last_time'], 3), signals=signals)
     return result
 
 
 def main():
   from cereal import messaging
+  args = argparse.ArgumentParser(description=__doc__)
+  args.add_argument('--accelerator-only', action='store_true', help='20-second repeat for factory pedal input; all guards remain.')
+  options = args.parse_args()
   params = Path('/data/params/d')
   if (params / 'NAPPedalCanBus').read_bytes().strip() != b'2':
     raise ValueError('This observation is for the configured bus-2 pedal.')
@@ -107,8 +122,15 @@ def main():
              (15, 'ACCELERATOR: with the brake released, lightly press and release the accelerator twice; stay in Park.'),
              (25, 'STEERING: gently turn the wheel a little each way, then return it to center. Do not force it.'),
              (38, 'REST: release the pedals and leave the wheel still.')]
+  duration = 45
+  if options.accelerator_only:
+    duration = 20
+    prompts = [(0, 'CAPTURE STARTED: stay in Park. Leave the pedals released for five seconds.'),
+               (5, 'ACCELERATOR: lightly press and release twice while remaining in Park.'),
+               (15, 'REST: release the accelerator fully; stay in Park.')]
+  print('Factory-pedal checksum validation is unverified; raw values are diagnostic observations only.', flush=True)
   index = 0
-  while time.monotonic() - start < 45:
+  while time.monotonic() - start < duration:
     sm.update(100)
     now = time.monotonic()
     require_parked(sm, params, now)
