@@ -1,3 +1,0 @@
-Original source exit: 1
-/tmp/tmprc8f49u7/opendbc/safety/modes/tesla_preap.h:294:21: runtime error: left shift of 240 by 24 places cannot be represented in type 'int'
-

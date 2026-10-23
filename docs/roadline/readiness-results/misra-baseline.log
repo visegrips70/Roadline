@@ -1,8 +1,0 @@
-
-[1;32m** Safety **[0m
-Checking /workspace/scratch/811aabd53a83/roadline/opendbc_repo/opendbc/safety/tests/misra/main.c ...
-Checking /workspace/scratch/811aabd53a83/roadline/opendbc_repo/opendbc/safety/tests/misra/main.c: __GNUC__=9...
-nofile:0:0: information: Active checkers: 310/1056 [checkersReport]
-
-
-[1;32mSuccess![0m took 19 seconds

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "source_revision": "2fbfa0c654230ead83596e2f6a474f8a8692f464",
+  "target": {
+    "model": "comma tizi",
+    "architecture": "aarch64",
+    "agnos": "17.2"
+  },
+  "channel": "staging",
+  "road_ready": false
+}
