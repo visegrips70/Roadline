@@ -15,7 +15,7 @@ def main():
   cores = {5, }
   config_realtime_process(0, 51)
 
-  gui_app.init_window("UI")
+  gui_app.init_window("Roadline")
   if BIG_UI:
     MainLayout()
   else:

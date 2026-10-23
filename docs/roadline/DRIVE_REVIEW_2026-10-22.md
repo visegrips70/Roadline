@@ -140,8 +140,8 @@ existing behavior; these boundaries still need replay and vehicle validation.
 New regressions cover the recorded rightward-request values with absent or
 ambiguous model desires, mirrored right-indicator cases, malformed numeric input,
 supervisor cancellation, stale cruise flags, and decoded steering/pedal CAN.
-These new checks have not yet run. The local execution environment is unavailable;
-the draft PR is being validated by GitHub Actions. No vehicle files were changed.
+These new checks passed clean GitHub Actions validation; see the final results
+below. No vehicle files were changed.
 The full rlogs are still required to establish the incident's complete cause.
 
 The next draft also supplies persistent dashboard pairing initialization during
@@ -152,7 +152,7 @@ HUD callbacks, bounds/debounce, and preference reversals under the existing outp
 limits. Two older actuator test doubles now explicitly include zero curvature;
 production direction validation was not relaxed for incomplete mocks.
 See [navigation and lane-position notes](NAVIGATION_AND_LANE_POSITION.md).
-No new tests are claimed passed until their GitHub run finishes.
+The navigation and lane-position tests passed clean GitHub Actions validation.
 
 A subsequent review found that the independent stock-cruise stalk spoofer could
 continue an in-flight engage retry after the steering/pedal controller vetoed
@@ -162,3 +162,30 @@ transmission slot without the ordinary pedal-handoff delay. Simultaneous cancel
 and engage requests cannot queue a later engage. Existing normal stock-cruise
 operation and the brake-only lateral behavior remain unchanged. Added stock-CC
 regressions and the full Pre-AP unit-test directory are included in validation.
+
+## Current validation and release state
+
+- Clean GitHub Actions run [39881062781](https://github.com/visegrips70/Roadline/actions/runs/39881062781)
+  passed for `e4f9eff15f9bb17754573427025bb6b00541d2f2`: native build, focused
+  tests, inherited controls tests, dashboard, complete Panda safety suite and MISRA baseline.
+- Clean GitHub Actions run [39882292147](https://github.com/visegrips70/Roadline/actions/runs/39882292147)
+  passed for `ec2cd9e369c1f3903af2b9fe2b3bab0bf8d40de8`, including the final
+  stock-cruise cancellation correction and full Pre-AP test directory.
+- Local final controls / controls-library / Pre-AP suite: 705 passed, one skipped,
+  200 subtests passed. A focused subset passed 75 tests; these counts overlap.
+- Approved Roadline media were recovered unchanged and verified against the
+  original manifest. Branding, release-preparation and URL-verifier tests passed:
+  80 tests total. They are now included in the normal focused validation suite.
+- The draft combines the control repairs, navigation pairing setup, live lane trim
+  and Roadline display branding. Internal NAP interfaces and licenses are retained.
+  It has not been installed on the comma. Radar remains outside this repair scope
+  and no radar, pedal, steering ECU or Panda firmware was flashed.
+
+The earlier validation sections document the sequence of work; these results
+supersede their pending desktop-test status. They do not supersede the release
+block. Full incident rlogs are still missing; the turn guard is a containment
+measure, not proof of the incident's root cause. Device build, parked boot,
+actual override/cancellation timing, navigation pairing/GPS, display behavior,
+and recovery must still be verified before considering driving acceptance.
+No autonomous turns, MCU2 route import, public installer or update promotion are
+approved by these test results. Keep assistance disabled on the installed build.

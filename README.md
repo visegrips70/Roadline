@@ -1,3 +1,7 @@
+# Draft repair candidate — release blocked
+
+See the [drive review](docs/roadline/DRIVE_REVIEW_2026-10-22.md) for remaining incident evidence and vehicle checks. Approved Roadline graphics are included; see [branding status](docs/roadline/BRANDING_UPLOAD_STATUS.md). This branch is not an install release.
+
 # Roadline
 
 A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.

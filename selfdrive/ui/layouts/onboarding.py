@@ -112,7 +112,7 @@ class TermsPage(Widget):
     self._on_accept = on_accept
     self._on_decline = on_decline
 
-    self._title = Label(tr("Welcome to openpilot"), font_size=90, font_weight=FontWeight.BOLD, text_alignment=rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
+    self._title = Label(tr("Welcome to Roadline"), font_size=90, font_weight=FontWeight.BOLD, text_alignment=rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
     self._desc = Label(tr("You must accept the Terms and Conditions to use openpilot. Read the latest terms at https://comma.ai/terms before continuing."),
                        font_size=90, font_weight=FontWeight.MEDIUM, text_alignment=rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
 
@@ -149,7 +149,7 @@ class DeclinePage(Widget):
     self._text = Label(tr("You must accept the Terms and Conditions in order to use openpilot."),
                        font_size=90, font_weight=FontWeight.MEDIUM, text_alignment=rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
     self._back_btn = Button(tr("Back"), click_callback=back_callback)
-    self._uninstall_btn = Button(tr("Decline, uninstall openpilot"), button_style=ButtonStyle.DANGER,
+    self._uninstall_btn = Button(tr("Decline, uninstall Roadline"), button_style=ButtonStyle.DANGER,
                                  click_callback=self._on_uninstall_clicked)
 
   def _on_uninstall_clicked(self):
