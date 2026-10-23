@@ -131,3 +131,38 @@ failure, checksum/mode/link tampering, onroad refusal, repeated starts, preserve
 calibration and refusal to overwrite externally changed paths. Services and
 vehicle hardware are simulated. Bench startup and live stationary checks remain
 outstanding; public installer publication and road readiness are unchanged.
+
+## Passive startup follow-up
+
+The operator subsequently reported the c79c68f runtime still selected after the
+requested reboot, with assistance/pedal control disabled, the previous install
+preserved and saved calibration matching. A disconnected 10-second observation
+received current, valid Panda/device/manager messages, no reported Panda faults,
+and `noOutput` with controls disallowed. The SPI counter increased by five;
+a later 30-second log sample contained two NACK messages and no captured final
+transfer-failure or timeout message. This does not prove the absence of other
+communication errors or establish actuator health.
+
+The first parked vehicle observation received current, valid `carState` and
+Panda messages, zero speed, Park gear, CAN ignition, no reported Panda/steering
+faults and no expected process reported stopped. However, Panda remained in
+`elm327` diagnostic mode with controls disallowed. Source inspection found that
+`ControlsReady` was only written by `controls_update`, which passive mode never
+calls. This leaves the passive `noOutput` configuration waiting in pandad.
+
+The follow-up source change signals readiness immediately after the passive
+`CarParams` configuration has been persisted. It does not call `CI.init` or
+`CI.apply`; active-mode initialization and firmware are unchanged. Seven isolated
+tests execute the real constructor/loop methods with real CarParams serialization
+and mocked transport/persistence. Four passive regressions failed before the
+change; all seven pass afterward. The tests also cover failed parameter writes
+and failed active interface initialization. The focused CI suite already includes
+their directory. Device installation/verification of this follow-up is pending.
+
+The inherited Pre-AP `standstill` value is derived from stock cruise state and
+can be false while zero speed and Park are reported. Also, `brakePressed` is
+deliberately suppressed in the published car state to retain steering when the
+driver brakes. Neither published field alone validates the physical brake or
+standstill signals. Raw brake, pedal and steering input checks remain required
+before any engagement test. No assistance settings or public installer release
+have been promoted by this follow-up.
