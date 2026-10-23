@@ -23,4 +23,26 @@ jobs:
           lfs: false
           ref: ${{ github.sha }}
       - name: Import verified source changes into draft branch only
-        run: python3 tools/roadline/branding_import/import_source.py
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import importlib.util
+          from pathlib import Path
+          import subprocess
+          import sys
+          spec = importlib.util.spec_from_file_location('branding_import', 'tools/roadline/branding_import/import_source.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          path = 'selfdrive/assets/images/spinner_comma.png'
+          raw = Path(path).read_bytes()
+          blob = hashlib.sha1(f'blob {len(raw)}\0'.encode() + raw).hexdigest()
+          if blob != 'ac6b2d4e1faa58dbf310db257ecbff425adcdc66':
+            raise SystemExit('Legacy spinner differs from the inspected pinned Git blob.')
+          module.OLD_IMAGES[path] = hashlib.sha256(raw).hexdigest()
+          try:
+            module.main()
+          except subprocess.CalledProcessError as exc:
+            print(exc.stdout or '', file=sys.stderr)
+            print(exc.stderr or '', file=sys.stderr)
+            raise
+          PY
