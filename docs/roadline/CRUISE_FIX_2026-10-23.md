@@ -166,3 +166,36 @@ driver brakes. Neither published field alone validates the physical brake or
 standstill signals. Raw brake, pedal and steering input checks remain required
 before any engagement test. No assistance settings or public installer release
 have been promoted by this follow-up.
+
+The operator's subsequent readback confirmed `FirmwareQueryDone=1`, absent
+`ControlsReady`, passive `TESLA_MODEL_S_PREAP`, and requested `noOutput`, while
+the vehicle was awake. This matches the source defect above. The correction is
+published in `99f383b43ecd7c97a976ef9ec4dae40231d645f0` (including preserved
+car-daemon executable mode).
+
+`tools/roadline/apply_passive_startup.py apply` installs only that exact car-daemon
+file into the existing c79c68f candidate. Run it as root only while `IsOnroad=0`
+and the existing assistance/pedal/radar/navigation settings remain disabled.
+It validates hardware/OS, base release, current firmware-file hash, candidate
+path and recovery state. Both old and new source-file hashes are pinned. It
+backs up the original file to the first-start recovery directory, stops the
+service, rechecks the guards, atomically replaces the file preserving ownership,
+and requests a service restart. It writes no parameters and never sets
+`ControlsReady` itself. The corrected car process performs the normal handshake.
+
+The base release identifier remains c79c68f. `roadline_local_changes.json` records
+the applied file's source revision and hash, explicitly with `road_ready=false`.
+This locally modified runtime is not a pristine publishable release artifact.
+The original package, previous installation and firmware files stay untouched.
+The same helper's `rollback` action restores just this file while offroad; the
+existing `control.py rollback --vehicle-disconnected` still returns the entire
+candidate to the previous installation. Normal full rollback precautions apply.
+
+Twenty-seven transaction tests use temporary files and simulated service calls,
+covering apply/rollback, repeat apply, wrong/missing settings, unknown content,
+failed restart, interrupted file replacement, missing backup, vehicle wake during
+stop, external edits and wrong active paths. They pass together with the seven
+startup regressions. Checksums also reproduce the exact published file from the
+actual c79c68f baseline. No test here sends CAN or establishes hardware health.
+After applying, an awake, parked, assistance-disabled observation must confirm
+fresh Panda `noOutput` with controls disallowed and `ControlsReady=1`.
