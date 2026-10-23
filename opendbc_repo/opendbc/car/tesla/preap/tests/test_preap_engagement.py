@@ -148,6 +148,23 @@ class TestPreAPBrakeDisengage(unittest.TestCase):
     self.assertTrue(eng.cruiseEnabled)
     self.assertTrue(eng.enableLongControl)
 
+  def test_pedal_fault_clears_target_and_resume_until_new_gesture(self):
+    eng = self._make_engagement()
+    self._engage_single_pull(eng)
+    eng.brake_paused_long = True
+    eng.resume_target_kph = 40.0
+    eng.handle_pedal_unavailable()
+    self.assertTrue(eng.cruiseEnabled)
+    self.assertFalse(eng.enableLongControl)
+    self.assertEqual(eng.pedal_speed_kph, 0.0)
+    self.assertFalse(eng.brake_paused_long)
+    # A healthy stream and gas tap do not resurrect the old speed request.
+    eng.process_brake_resume(2000, 0.0, False, True, True, True, True, True)
+    eng.process_buttons(0, 2, 2100, 10.0, 'KPH', True, True, True, False)
+    self.assertFalse(eng.enableLongControl)
+    eng.process_buttons(2, 0, 2200, 10.0, 'KPH', True, True, True, False)
+    self.assertTrue(eng.enableLongControl)
+
 
 class TestNoPedalCCEngage(unittest.TestCase):
   """Tests for no-pedal stock CC engage: DI state gating, double-pull behavior."""

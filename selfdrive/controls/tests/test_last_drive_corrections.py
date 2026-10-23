@@ -60,15 +60,15 @@ def test_relaxed_lower_launch_and_city_rise_other_profiles_unchanged():
  assert limit_positive_accel(-2.,.3,5.,2,.05)==-2.
 
 
-def test_actual_hso_yields_to_level_one_with_torque_and_returns_from_measured_angle():
+def test_actual_hso_yields_to_level_one_and_requires_fresh_engagement():
  from opendbc.car.tesla import carcontroller as module
  c=module.CarController.__new__(module.CarController)
  c.frame=2;c.CP=N(openpilotLongitudinalControl=False);c.apply_angle_last=90.;c.VM=None
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True;c.tap_params=None
- c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a:[],pcc_event=None)
+ c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a,**kw:[],pcc_event=None)
  c.parked_signal_test=N(update=lambda *a:[]);c.tap_lane_change=N(update=lambda *a,**k:[]);c.navigation_signal=N(update=lambda *a,**k:[])
- state=N(out=N(vEgo=2.,vEgoRaw=2.,leftBlinker=True,rightBlinker=False,steeringPressed=False,steeringAngleDeg=90.,steeringTorque=5.1,canValid=True),hands_on_level=1,tap_stalk=N())
- builder=car.CarControl.new_message();builder.latActive=True;builder.actuators.steeringAngleDeg=120.;cc=builder.as_reader()
+ state=N(out=N(vEgo=2.,vEgoRaw=2.,leftBlinker=True,rightBlinker=False,steeringPressed=False,steeringAngleDeg=90.,steeringTorque=5.1,canValid=True),hands_on_level=1,tap_stalk=N(),cruiseEnabled=True)
+ builder=car.CarControl.new_message();builder.enabled=builder.latActive=True;builder.actuators.steeringAngleDeg=120.;cc=builder.as_reader()
  with patch.object(module,'apply_steer_angle_limits_vm',side_effect=lambda target,*args:target) as limit:
   state.out.steeringTorque=4.1
   for _ in range(4):c._update_preap(cc,state)
@@ -76,11 +76,17 @@ def test_actual_hso_yields_to_level_one_with_torque_and_returns_from_measured_an
   state.out.steeringTorque=5.1
   for _ in range(60):c._update_preap(cc,state)
   assert c.tesla_can.create_steering_control.call_args.args[-1] is False
-  assert c.low_speed_turn_takeover_latched
+  assert c.steering_takeover_latched
   state.hands_on_level=0;state.out.steeringTorque=.1
   for _ in range(24):c._update_preap(cc,state)
+  assert c.tesla_can.create_steering_control.call_args.args[-1] is False
+  assert c.steering_takeover_latched
+  builder.enabled=builder.latActive=state.cruiseEnabled=False
+  for _ in range(2):c._update_preap(builder.as_reader(),state)
+  builder.enabled=builder.latActive=state.cruiseEnabled=True
+  for _ in range(2):c._update_preap(builder.as_reader(),state)
   assert c.tesla_can.create_steering_control.call_args.args[-1] is True
-  assert not c.low_speed_turn_takeover_latched
+  assert not c.steering_takeover_latched
   # Indicator clear removes the boosted exit-rate allowance immediately.
   state.out.leftBlinker=False;c._update_preap(cc,state);c._update_preap(cc,state)
   assert limit.call_args.args[5] is module.CarControllerParams
@@ -146,22 +152,14 @@ def test_highway_raw_torque_restores_fifty_count_filter():
  assert env['override_filter']==50
 
 
-def test_controller_legacy_override_paths():
- from opendbc.car.tesla import carcontroller as module
- tree=ast.parse(inspect.getsource(module.CarController))
- method=next(n for n in tree.body[0].body if isinstance(n,ast.FunctionDef) and n.name=='_update_preap')
- assignment=next(n for n in method.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='hands_on_trigger' for t in n.targets))
- from opendbc.car.tesla.preap.steering_override import hands_on_override,takeover_torque_threshold
- code=compile(ast.fix_missing_locations(ast.Module(body=[assignment],type_ignores=[])),'controller-override','exec')
+def test_shared_takeover_preserves_existing_effort_thresholds():
+ from opendbc.car.tesla.preap.steering_override import steering_takeover_requested,takeover_torque_threshold
  for mph in [10.,14.99,15.,24.,27.5,65.]:
   for signal in [False,True]:
    threshold=takeover_torque_threshold(mph/2.236936,city_turn=signal)
-   env=dict(blinker_on=signal,speed_mph=mph,hands_on_level=2,CS=N(out=N(vEgo=mph/2.236936,steeringTorque=threshold-.1)),hands_on_override=hands_on_override,takeover_torque_threshold=takeover_torque_threshold)
-   exec(code,env);assert not env['hands_on_trigger']
-   env['CS'].out.steeringTorque=threshold+.1
-   exec(code,env);assert env['hands_on_trigger']==(mph<15. or signal)
-   env['CS'].out.steeringTorque=0.;env['hands_on_level']=3
-   exec(code,env);assert env['hands_on_trigger']
+   assert not steering_takeover_requested(2,threshold-.1,mph/2.236936,signal)
+   assert steering_takeover_requested(2,threshold+.1,mph/2.236936,signal)==(mph<15. or signal)
+   assert steering_takeover_requested(3,0.,mph/2.236936,signal)
 
 
 def test_recorded_road_curve_is_not_an_unsignaled_city_turn():

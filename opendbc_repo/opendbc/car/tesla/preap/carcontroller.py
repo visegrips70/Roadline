@@ -34,12 +34,12 @@ class PreAPLongController:
     self.vdas = VirtualDAS(dt=0.02)
     self.pitch_plan_gate = OpenRoadPitchPermission()
 
-  def update(self, CC, CS, frame, tesla_can, can_bus_party):
+  def update(self, CC, CS, frame, tesla_can, can_bus_party, *, control_allowed=True):
     can_sends = []
     actuators = CC.actuators
 
     requested_long = CS.cruiseEnabled and CS.enableLongControl
-    long_active = requested_long and CC.longActive
+    long_active = requested_long and CC.enabled and CC.longActive and control_allowed
     use_pedal = nap_conf.use_pedal
     pedal_factor = float(nap_conf.pedal_factor)
     pedal_transform_valid = np.isfinite(pedal_factor) and abs(pedal_factor) > 1e-6
@@ -49,7 +49,11 @@ class PreAPLongController:
     # of long_active. long_active is False during gas press (gasOverride
     # sets OVERRIDE_LONGITUDINAL), but we still need to track state and
     # send pedal commands for smooth transitions.
-    pedal_engaged = requested_long and pedal_long_allowed
+    # A stale software-cruise latch must not send an enabled hold command
+    # after selfdrived has disabled the system (including Controls Mismatch).
+    # Reject faulted/stale feedback even if an engagement request is still in
+    # flight. Disabled passthrough commands below can recover a timeout fault.
+    pedal_engaged = requested_long and pedal_long_allowed and CC.enabled and control_allowed and CS.pedal.available
 
     # --- Engage transition ---
     requested_long_rising = (not self.prev_requested_long) and requested_long

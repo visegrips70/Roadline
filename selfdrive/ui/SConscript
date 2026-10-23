@@ -32,6 +32,7 @@ if GetOption('extras') and arch == "larch64":
 
     release = "release3"
     installers = [
+      ("roadline_staging", "roadline-release-staging"),
       ("openpilot", release),
       ("openpilot_test", f"{release}-staging"),
       ("openpilot_nightly", "nightly"),
@@ -48,6 +49,8 @@ if GetOption('extras') and arch == "larch64":
                                 "ld -r -b binary -o $TARGET $SOURCE")
     for name, branch in installers:
       d = {'BRANCH': f"'\"{branch}\"'"}
+      if name == "roadline_staging":
+        d["ROADLINE_INSTALLER"] = "1"
       if "internal" in name:
         d['INTERNAL'] = "1"
 

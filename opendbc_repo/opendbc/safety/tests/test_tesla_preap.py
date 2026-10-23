@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import unittest
-import numpy as np
 
 from opendbc.car.lateral import get_max_angle_delta_vm, get_max_angle_vm
 from opendbc.car.tesla.values import CarControllerParams
@@ -166,6 +165,80 @@ class TeslaPreAPTestMixin(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     lever = STALK_RWD_ENGAGE if enable else STALK_FWD_CANCEL
     return self.packer.make_can_msg_safety("STW_ACTN_RQ", 0, {"SpdCtrlLvr_Stat": lever})
 
+  def _stalk_neutral(self):
+    self._rx(self.packer.make_can_msg_safety("STW_ACTN_RQ", 0, {"SpdCtrlLvr_Stat": 0}))
+
+  def test_enable_control_allowed_from_cruise(self):
+    self._rx(self._pcm_status_msg(False))
+    self.assertFalse(self.safety.get_controls_allowed())
+    self._stalk_neutral()
+    self._rx(self._pcm_status_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_fresh_pull_rearms_after_heartbeat_withdrawal(self):
+    self._rx(self._pcm_status_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+    # board/main.c withdraws permission after application disengagement,
+    # without changing cruise_engaged_prev. This caused six 2-second failures.
+    self.safety.set_controls_allowed(False)
+    self.assertTrue(self.safety.get_cruise_engaged_prev())
+    self._stalk_neutral()
+    self._rx(self._pcm_status_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_held_pull_cannot_rearm_after_permission_withdrawal(self):
+    self._rx(self._pcm_status_msg(True))
+    self.safety.set_controls_allowed(False)
+    for t in (10000, 100000, 700000, 2000000):
+      self.safety.set_timer(t)
+      self._rx(self._pcm_status_msg(True))
+      self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_startup_held_pull_and_stale_neutral_cannot_engage(self):
+    self.safety.set_safety_hooks(CarParams.SafetyModel.teslaPreap, 0)
+    self._rx(self._pcm_status_msg(True))
+    self.assertFalse(self.safety.get_controls_allowed())
+    self._stalk_neutral()
+    self.safety.set_timer(250000)
+    self._rx(self._pcm_status_msg(True))
+    self.assertFalse(self.safety.get_controls_allowed())
+    self._stalk_neutral()
+    self._rx(self._pcm_status_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_blocked_pull_requires_new_gesture_after_interlock_clears(self):
+    for reason in ("hands", "epas", "door", "gear"):
+      with self.subTest(reason=reason):
+        self._setup_safety_hooks()
+        if reason == "hands":
+          self._rx(self._angle_meas_msg(0, hands_on_level=3))
+        elif reason == "epas":
+          self._rx(self._angle_meas_msg(0, eac_status=0, eac_error_code=6))
+        elif reason == "door":
+          self._rx(self._door_msg(door_fl=1))
+        else:
+          self._rx(self._gear_msg(0))
+        self._rx(self._pcm_status_msg(True))
+        self.assertFalse(self.safety.get_controls_allowed())
+        self._rx(self._angle_meas_msg(0))
+        self._rx(self._door_msg())
+        self._rx(self._gear_msg(4))
+        self._rx(self._pcm_status_msg(True))
+        self.assertFalse(self.safety.get_controls_allowed())
+        self._stalk_neutral()
+        self._rx(self._pcm_status_msg(True))
+        self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_stalk_timer_wrap_and_wrong_bus(self):
+    self.safety.set_timer(0xFFFFFF00)
+    self._stalk_neutral()
+    self.safety.set_timer(0x100)
+    wrong_bus = self.packer.make_can_msg_safety("STW_ACTN_RQ", 2, {"SpdCtrlLvr_Stat": STALK_RWD_ENGAGE})
+    self._rx(wrong_bus)
+    self.assertFalse(self.safety.get_controls_allowed())
+    self._rx(self._pcm_status_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+
   def _gear_msg(self, gear):
     return self.packer.make_can_msg_safety("DI_torque2", 0, {"DI_gear": gear})
 
@@ -310,6 +383,7 @@ class TeslaPreAPTestMixin(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
     self._rx(self._angle_meas_msg(0, hands_on_level=0))
     self.assertFalse(self._tx(self._angle_cmd_msg(0, 1)))
+    self._stalk_neutral()
     self._rx(self._pcm_status_msg(True))
     self.assertTrue(self._tx(self._angle_cmd_msg(0, 1)))
 
@@ -352,6 +426,7 @@ class TeslaPreAPTestMixin(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self.assertFalse(self.safety.get_cruise_engaged_prev())
     self._rx(self._angle_meas_msg(0, hands_on_level=0))
     self.assertFalse(self.safety.get_controls_allowed())
+    self._stalk_neutral()
     self._rx(self._pcm_status_msg(True))
     self.assertTrue(self.safety.get_controls_allowed())
 
@@ -419,17 +494,17 @@ class TeslaPreAPTestMixin(common.CarSafetyTest, common.AngleSteeringSafetyTest):
         angle = next_angle
 
       self.assertIsNotNone(blocked_at,
-                           f"Speed {speed}: VM limit never blocked — reached {angle:.1f} deg "
+                           f"Speed {speed}: VM limit never blocked — reached {angle:.1f} deg " +
                            f"(Python expected max {expected_max:.1f} deg)")
       # Tight bound: blocked angle must be within ±25% of Python's computation.
       # Absorbs float32/float64 drift but catches order-of-magnitude bugs.
       lower_bound = expected_max * 0.75
       upper_bound = expected_max * 1.25
       self.assertGreaterEqual(blocked_at, lower_bound,
-                              f"Speed {speed}: blocked at {blocked_at:.1f} deg — "
+                              f"Speed {speed}: blocked at {blocked_at:.1f} deg — " +
                               f"too LOW (expected ~{expected_max:.1f}, bound {lower_bound:.1f})")
       self.assertLessEqual(blocked_at, upper_bound,
-                           f"Speed {speed}: blocked at {blocked_at:.1f} deg — "
+                             f"Speed {speed}: blocked at {blocked_at:.1f} deg — " +
                            f"too HIGH (expected ~{expected_max:.1f}, bound {upper_bound:.1f})")
 
   def _setup_safety_hooks(self):
@@ -448,6 +523,7 @@ class TestTeslaPreAPSteeringOnly(TeslaPreAPTestMixin, unittest.TestCase):
   def _setup_safety_hooks(self):
     self.safety.set_safety_hooks(CarParams.SafetyModel.teslaPreap, 0)
     self.safety.init_tests()
+    self._stalk_neutral()
 
   def test_pedal_blocked_without_flag(self):
     self.safety.set_controls_allowed(True)
@@ -483,6 +559,7 @@ class TestTeslaPreAPWithPedal(TeslaPreAPTestMixin, unittest.TestCase):
   def _setup_safety_hooks(self):
     self.safety.set_safety_hooks(CarParams.SafetyModel.teslaPreap, PREAP_FLAG_ENABLE_PEDAL)
     self.safety.init_tests()
+    self._stalk_neutral()
 
   # Pedal interceptor (0x552) values are raw 16-bit integers read by the panda as
   # `(data[0] << 8) | data[1]`. The DBC scales them to physical:

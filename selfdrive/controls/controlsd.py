@@ -261,11 +261,12 @@ class Controls:
       self.lane_centering_enabled = self.params.get_bool("NAPLaneCentering")
       self.lane_centering_strength = self.params.get("NAPLaneCenteringStrength", return_default=True)
       self.lane_centering_offset = self.params.get("NAPLaneCenterOffset", return_default=True)
-      # Only accept a new preference while steering assistance is disengaged.
-      # The settings UI additionally restricts editing to offroad.
-      if not CC.latActive:
-        self.roadline_lane_offset_cm = self.params.get("RoadlineLaneOffsetCm")
       self.nap_follow_distance = self.params.get("NAPFollowDistance", return_default=True)
+
+    # Accept the 1-cm HUD preference while engaged. LaneCenteringAssist still
+    # gates application on road geometry/health and bounds acceleration and jerk.
+    if self.sm.frame % 10 == 0:
+      self.roadline_lane_offset_cm = self.params.get("RoadlineLaneOffsetCm")
 
     decision = getattr(self.navigation_turn_commit, 'decision', None)
     manual_city_intent = manual_turn_intent(CS, decision, model_v2, time.monotonic())

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "product": "Roadline",
+  "publication_enabled": true,
+  "source_repository": "visegrips70/Roadline",
+  "distribution_repository": "visegrips70/Roadline",
+  "target": {
+    "model": "comma tizi",
+    "architecture": "aarch64",
+    "agnos": "17.2"
+  },
+  "channels": {
+    "staging": {
+      "installer_url": "https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer",
+      "installer_sha256": "e2cdbe18ee902534c0b97ad898f604d884f76c77d86a578bd5333694cb623f61",
+      "release_commit": "f72bd877ee3e6b43c644587f95f9df0a9bdc91c8",
+      "source_revision": "2fbfa0c654230ead83596e2f6a474f8a8692f464",
+      "status": "installation-test",
+      "automatic_updates_enabled": false,
+      "clean_setup_verified": false,
+      "road_ready": false
+    },
+    "stable": {
+      "installer_url": null,
+      "installer_sha256": null,
+      "release_commit": null
+    }
+  },
+  "requirements": [
+    "Verify a clean setup installation and first boot on the bench-powered comma 3X",
+    "Preserve vehicle-specific settings before any reset",
+    "Validate steering takeover, pedal/brake behavior, CAN health and driver monitoring before road use",
+    "Resolve and verify splash playback before stable publication",
+    "Review and validate future runtime versions before channel updates"
+  ],
+  "note": "Staging installer and runtime published; anonymous downloads and checksum verified. Stable remains unpublished. Assistance and automatic updates start disabled. Clean setup and driving validation remain outstanding."
+}

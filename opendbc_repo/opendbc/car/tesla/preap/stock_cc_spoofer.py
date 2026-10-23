@@ -36,9 +36,21 @@ class StockCCSpoofer:
     self.cancel_frame = -1_000_000
     self.prev_di_cc_engaged = False
     self.pcc_event = None
+    self.override_active = False
 
-  def update(self, CS, frame, tesla_can, can_bus_party):
+  def update(self, CS, frame, tesla_can, can_bus_party, *, cancel_override=False):
     can_sends = []
+
+    # Takeover/fault cancellation also owns stock cruise, including an
+    # in-flight retry. Do not wait for the normal pedal handoff delay.
+    if cancel_override:
+      self.cc_engage_phase = _PHASE_IDLE
+      CS.preap_cc_engage_needed = False
+      CS.preap_cc_cancel_needed = False
+      if not self.override_active or getattr(CS, "di_cruise_state", "OFF") == "ENABLED":
+        self.cancel_pending = True
+        self.cancel_frame = frame - CANCEL_DELAY_FRAMES
+    self.override_active = cancel_override
 
     # --- Bridge engagement-FSM intent to internal state ---
     if getattr(CS, "preap_cc_cancel_needed", False):
@@ -48,11 +60,13 @@ class StockCCSpoofer:
       self.cc_engage_phase = _PHASE_IDLE
       CS.preap_cc_cancel_needed = False
 
-    if getattr(CS, "preap_cc_engage_needed", False) and self.cc_engage_phase == _PHASE_IDLE:
-      self.cc_engage_phase = _PHASE_ENGAGING
-      self.cc_engage_start_frame = frame
-      carlog.debug("StockCC: ENGAGING (di=%s)", getattr(CS, "di_cruise_state", "OFF"))
+    if getattr(CS, "preap_cc_engage_needed", False):
+      # Consume a rejected request so it cannot become a delayed re-engage.
       CS.preap_cc_engage_needed = False
+      if not cancel_override and not self.cancel_pending and self.cc_engage_phase == _PHASE_IDLE:
+        self.cc_engage_phase = _PHASE_ENGAGING
+        self.cc_engage_start_frame = frame
+        carlog.debug("StockCC: ENGAGING (di=%s)", getattr(CS, "di_cruise_state", "OFF"))
 
     # --- TX one frame per 10ms slot (frame % 10 == 0) ---
     cancel_ready = (frame - self.cancel_frame) >= CANCEL_DELAY_FRAMES

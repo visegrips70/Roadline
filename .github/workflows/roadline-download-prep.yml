@@ -1,0 +1,89 @@
+name: Roadline direct-download preparation
+on:
+  push:
+    branches: [roadline-direct-download]
+  pull_request:
+    paths:
+      - 'tools/roadline/download_release.py'
+      - 'tools/roadline/test_download_release.py'
+      - 'tools/roadline/verify_install_url.py'
+      - 'tools/roadline/test_verify_install_url.py'
+      - 'tools/roadline/package_native_release.py'
+      - 'tools/roadline/test_package_native_release.py'
+      - 'tools/roadline/build_installer_on_device.sh'
+      - 'tools/roadline/bench_boot.py'
+      - 'tools/roadline/test_bench_boot.py'
+      - 'tools/roadline/publish_staging.py'
+      - 'tools/roadline/test_publish_staging.py'
+      - 'tools/roadline/inspect_bench.py'
+      - 'tools/roadline/test_inspect_bench.py'
+      - 'tools/roadline/start_cruise_candidate.py'
+      - 'tools/roadline/test_start_cruise_candidate.py'
+      - 'selfdrive/ui/installer/**'
+      - 'selfdrive/ui/SConscript'
+      - 'release/roadline/**'
+      - '.github/workflows/roadline-download-prep.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-tooling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+          lfs: false
+          persist-credentials: false
+      - name: Test preparation tools without operating a device
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/roadline-download-prep
+          python3 -m unittest discover -s tools/roadline -p test_download_release.py -v 2>&1 | tee build/roadline-download-prep/release-tests.txt
+          python3 -m unittest discover -s tools/roadline -p test_verify_install_url.py -v 2>&1 | tee build/roadline-download-prep/url-tests.txt
+          python3 -m unittest discover -s tools/roadline -p test_package_native_release.py -v
+          python3 -m unittest discover -s tools/roadline -p test_bench_boot.py -v
+          python3 -m unittest discover -s tools/roadline -p test_inspect_bench.py -v
+          python3 -m unittest discover -s tools/roadline -p test_start_cruise_candidate.py -v
+          python3 -m unittest discover -s tools/roadline -p test_publish_staging.py -v
+          bash -n tools/roadline/build_installer_on_device.sh
+          python3 -m py_compile tools/roadline/download_release.py tools/roadline/verify_install_url.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          config = json.loads(Path('release/roadline/channels.json').read_text())
+          assert config['channels']['stable']['installer_url'] is None
+          staging = config['channels']['staging']
+          if config['publication_enabled']:
+            assert staging['status'] == 'installation-test'
+            assert staging['automatic_updates_enabled'] is False
+            assert staging['road_ready'] is False
+            assert staging['installer_url'] == 'https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer'
+            assert len(staging['installer_sha256']) == 64 and len(staging['release_commit']) == 40
+          else:
+            assert staging['installer_url'] is None
+          print('Staging is installation-test only; stable publication and automatic promotion remain disabled.')
+          PY
+      - name: Package release preparation tools, not an installer
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          paths = [Path('tools/roadline') / name for name in ('download_release.py', 'test_download_release.py', 'verify_install_url.py', 'test_verify_install_url.py', 'package_native_release.py', 'test_package_native_release.py', 'build_installer_on_device.sh')]
+          paths += [Path('docs/roadline/DIRECT_DOWNLOAD.md'), Path('release/roadline/channels.json')]
+          with zipfile.ZipFile('build/roadline-download-prep/Roadline_Direct_Download_Preparation.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+            for path in paths:
+              z.write(path, path.as_posix())
+          PY
+          sha256sum build/roadline-download-prep/Roadline_Direct_Download_Preparation.zip > build/roadline-download-prep/SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: Roadline-direct-download-preparation-${{ github.sha }}
+          path: build/roadline-download-prep
+          if-no-files-found: error

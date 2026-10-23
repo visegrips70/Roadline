@@ -116,14 +116,14 @@ def test_driver_help_cancels_held_turn_until_intent_reset():
  assert e.blocked
 
 def pedal_cs(gas=False):
- return N(cruiseEnabled=True,enableLongControl=True,out=N(vEgo=5,aEgo=.4,gasPressed=gas),pedal_interceptor_value=6.,pedal_timeout=False,pedal=N(torque_level=0),cruise_buttons=0,prev_cruise_buttons=0,pccEvent=None)
+ return N(cruiseEnabled=True,enableLongControl=True,out=N(vEgo=5,aEgo=.4,gasPressed=gas),pedal_interceptor_value=6.,pedal_timeout=False,pedal=N(torque_level=0,available=True),cruise_buttons=0,prev_cruise_buttons=0,pccEvent=None)
 
 def test_pedal_press_passthrough_then_release_picks_up_current_state():
  from opendbc.car.tesla.preap import carcontroller as ccmod
  cc=PreAPLongController();cc.vdas=MagicMock();cc.vdas.update.return_value=6.
  can=MagicMock();can.create_pedal_command.side_effect=lambda cmd,enable:dict(cmd=cmd,enable=enable)
  conf=N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)
- cs_=pedal_cs(True);control=N(longActive=False,actuators=N(accel=.4),orientationNED=[])
+ cs_=pedal_cs(True);control=N(enabled=True,longActive=False,actuators=N(accel=.4),orientationNED=[])
  with patch.object(ccmod,'nap_conf',conf),patch.object(ccmod,'get_zero_torque') as z:
   z.return_value.get.return_value=4
   sends=cc.update(control,cs_,0,can,0)
@@ -141,29 +141,33 @@ def test_brake_pause_never_enables_pedal_output():
  c=PreAPLongController();c.vdas=MagicMock();can=MagicMock();can.create_pedal_command.side_effect=lambda cmd,enable:dict(cmd=cmd,enable=enable)
  cs_=pedal_cs();cs_.enableLongControl=False
  with patch.object(ccmod,'nap_conf',N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)),patch.object(ccmod,'get_zero_torque'):
-  sends=c.update(N(longActive=False,actuators=N(accel=1),orientationNED=[]),cs_,0,can,0)
+  sends=c.update(N(enabled=True,longActive=False,actuators=N(accel=1),orientationNED=[]),cs_,0,can,0)
   assert sends[-1]['enable']==0 and not c.vdas.update.called
 
-def test_steering_handback_does_not_wait_for_wheel_to_straighten():
+def test_steering_takeover_requires_fresh_engagement_without_recentering_wheel():
  from opendbc.car.tesla import carcontroller as ccmod
  c=ccmod.CarController.__new__(ccmod.CarController)
  c.CP=N(openpilotLongitudinalControl=False);c.frame=0;c.apply_angle_last=25.;c.VM=MagicMock()
- c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a:[],pcc_event=None)
+ c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a,**kw:[],pcc_event=None)
  c.parked_signal_test=N(update=lambda *a:[]);c.tap_lane_change=N(update=lambda *a,**kw:[])
  c.navigation_signal=N(update=lambda *a,**kw:[]);c.tap_params=None
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True
  out=N(vEgo=4.,vEgoRaw=4.,leftBlinker=True,rightBlinker=False,steeringPressed=True,steeringAngleDeg=25.,steeringTorque=0.,canValid=True)
- cs_=N(out=out,hands_on_level=2,tap_stalk=N())
- actuator=MagicMock();actuator.steeringAngleDeg=30.
- control=N(actuators=actuator,latActive=True)
+ cs_=N(out=out,hands_on_level=2,tap_stalk=N(),cruiseEnabled=True)
+ actuator=MagicMock();actuator.steeringAngleDeg=30.;actuator.curvature=0.
+ control=N(actuators=actuator,enabled=True,latActive=True)
  with patch.object(ccmod,'apply_steer_angle_limits_vm',side_effect=lambda target,previous,*a:target) as apply:
   c._update_preap(control,cs_)
   assert not apply.call_args.args[4]
   out.steeringPressed=False;cs_.hands_on_level=0
-  for _ in range(22):c._update_preap(control,cs_)
+  for _ in range(100):c._update_preap(control,cs_)
+  assert not apply.call_args.args[4]
+  control.enabled=control.latActive=cs_.cruiseEnabled=False
+  for _ in range(2):c._update_preap(control,cs_)
+  control.enabled=control.latActive=cs_.cruiseEnabled=True
+  for _ in range(2):c._update_preap(control,cs_)
   assert apply.call_args.args[4]
   assert out.steeringAngleDeg==25 and actuator.steeringAngleDeg==30
-  assert any(call.args[4] and call.args[1]==25 for call in apply.call_args_list)  # First active handback starts from measured angle.
   out.steeringPressed=True;cs_.hands_on_level=2
   c._update_preap(control,cs_);c._update_preap(control,cs_)
   assert not apply.call_args.args[4]
@@ -171,7 +175,7 @@ def test_steering_handback_does_not_wait_for_wheel_to_straighten():
 def test_odd_frame_release_still_rebases_before_first_applied_command():
  from opendbc.car.tesla.preap import carcontroller as ccmod
  c=PreAPLongController();c.vdas=MagicMock();c.vdas.update.return_value=6.
- can=MagicMock();cs_=pedal_cs(True);control=N(longActive=False,actuators=N(accel=.5),orientationNED=[])
+ can=MagicMock();cs_=pedal_cs(True);control=N(enabled=True,longActive=False,actuators=N(accel=.5),orientationNED=[])
  with patch.object(ccmod,'nap_conf',N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)),patch.object(ccmod,'get_zero_torque') as z:
   z.return_value.get.return_value=4.
   c.update(control,cs_,0,can,0)

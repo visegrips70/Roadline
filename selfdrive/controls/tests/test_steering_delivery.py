@@ -79,28 +79,30 @@ class TeslaTakeover(unittest.TestCase):
     c.parked_signal_test = N(update=Mock(return_value=[]))
     c.tap_lane_change = N(update=Mock(return_value=[]))
     c.navigation_signal = N(update=Mock(return_value=[]))
-    self.cs = N(hands_on_level=0, tap_stalk=N(), out=N(vEgo=3., vEgoRaw=3.,
+    self.cs = N(hands_on_level=0, tap_stalk=N(), cruiseEnabled=True, out=N(vEgo=3., vEgoRaw=3.,
                    leftBlinker=True, rightBlinker=False, steeringPressed=False, steeringTorque=0.0, canValid=True, steeringAngleDeg=0.))
-    act = N(steeringAngleDeg=0., as_builder=lambda:N(steeringAngleDeg=0.))
-    self.cc = N(latActive=True, actuators=act)
+    act = N(steeringAngleDeg=0., curvature=0., as_builder=lambda:N(steeringAngleDeg=0.))
+    self.cc = N(enabled=True, latActive=True, actuators=act)
     self.limiter = self.enterContext(patch('opendbc.car.tesla.carcontroller.apply_steer_angle_limits_vm',
                                         side_effect=lambda target,*args:target))
 
   def tick(self, count=1):
     for _ in range(count): self.c._update_preap(self.cc,self.cs)
 
-  def test_signal_cannot_keep_centered_takeover_latched(self):
+  def test_quiet_driver_and_held_signal_cannot_restore_steering(self):
     self.cs.out.steeringPressed=True
     self.tick()
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.assertTrue(self.c.steering_takeover_latched)
+    self.assertTrue(self.c.stock_cc.update.call_args.kwargs['cancel_override'])
     self.cs.out.steeringPressed=False
-    # The current NAP contract is 0.20 s quiet handback, with a measured-angle
-    # blend covered by test_last_drive_corrections and test_approved_repair.
-    self.tick(19)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.tick(200)
+    self.assertTrue(self.c.steering_takeover_latched)
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
+    self.cc.enabled = self.cc.latActive = self.cs.cruiseEnabled = False
     self.tick(2)
-    self.assertFalse(self.c.low_speed_turn_takeover_latched)
-    # Assert actual controller enables its steering CAN builder after handoff.
+    self.cc.enabled = self.cc.latActive = self.cs.cruiseEnabled = True
+    self.tick(2)
+    self.assertFalse(self.c.steering_takeover_latched)
     self.assertTrue(self.c.tesla_can.create_steering_control.call_args.args[2])
 
   def test_invalid_can_or_nonfinite_angle_cannot_reacquire(self):
@@ -110,23 +112,22 @@ class TeslaTakeover(unittest.TestCase):
     self.cs.hands_on_level=0
     self.cc.actuators.steeringAngleDeg=float('nan')
     self.tick(100)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.assertTrue(self.c.steering_takeover_latched)
     self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
     self.cc.actuators.steeringAngleDeg=0.
     self.cs.out.canValid=False
     self.tick(100)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.assertTrue(self.c.steering_takeover_latched)
     self.cs.out.canValid=True
     self.cs.out.steeringAngleDeg=float('inf')
     self.tick(100)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
+    self.assertTrue(self.c.steering_takeover_latched)
     self.cs.out.steeringAngleDeg=0.
-    self.tick(19)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
-    self.tick(2)
-    self.assertFalse(self.c.low_speed_turn_takeover_latched)
+    self.tick(100)
+    self.assertTrue(self.c.steering_takeover_latched)
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
 
-  def test_renewed_driver_input_restarts_quiet_interval(self):
+  def test_renewed_driver_input_cannot_clear_takeover(self):
     self.cs.hands_on_level=3
     self.tick()
     self.cs.hands_on_level=0
@@ -135,16 +136,44 @@ class TeslaTakeover(unittest.TestCase):
     self.tick()
     self.cs.out.steeringPressed=False
     self.tick(19)
-    self.assertTrue(self.c.low_speed_turn_takeover_latched)
-    self.tick(2)
-    self.assertFalse(self.c.low_speed_turn_takeover_latched)
+    self.assertTrue(self.c.steering_takeover_latched)
+    self.tick(100)
+    self.assertTrue(self.c.steering_takeover_latched)
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
 
   def test_disengagement_never_sends_active_steering(self):
     self.cc.latActive=False
     self.tick(100)
     self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
 
-  def test_recorded_approach_releases_after_input_ends_despite_held_signal(self):
+  def test_manual_steering_when_roadline_is_off_leaves_stock_cruise_alone(self):
+    from opendbc.car.tesla.preap.stock_cc_spoofer import StockCCSpoofer
+    self.c.stock_cc = StockCCSpoofer()
+    self.cs.di_cruise_state = 'ENABLED'
+    self.cs.msg_stw_actn_req = {'MC_STW_ACTN_RQ': 3}
+    self.cs.preap_cc_cancel_needed = self.cs.preap_cc_engage_needed = False
+    self.cc.enabled = self.cc.latActive = self.cs.cruiseEnabled = False
+    self.cs.out.steeringPressed = True
+    self.tick(30)
+    self.c.tesla_can.create_action_request.assert_not_called()
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])
+
+  def test_takeover_during_pending_application_enable_still_cancels_stock_cruise(self):
+    from opendbc.car.tesla.preap.stock_cc_spoofer import StockCCSpoofer
+    from opendbc.car.tesla.values import CruiseButtons
+    self.c.stock_cc = StockCCSpoofer()
+    self.cs.di_cruise_state = 'ENABLED'
+    self.cs.msg_stw_actn_req = {'MC_STW_ACTN_RQ': 3}
+    self.cs.preap_cc_cancel_needed = self.cs.preap_cc_engage_needed = False
+    self.cc.enabled = self.cc.latActive = False
+    self.cs.cruiseEnabled = True
+    self.cs.out.steeringPressed = True
+    self.tick(30)
+    calls = self.c.tesla_can.create_action_request.call_args_list
+    self.assertEqual(len(calls), 3)
+    self.assertTrue(all(call.args[0] == CruiseButtons.CANCEL for call in calls))
+
+  def test_recorded_approach_does_not_reacquire_without_fresh_engagement(self):
     samples = json.loads((Path(__file__).parent / "fixtures/steering_takeover_291.json").read_text())
     was_latched = False
     released = False
@@ -157,8 +186,9 @@ class TeslaTakeover(unittest.TestCase):
       self.cc.latActive = row["lat"]
       self.cc.actuators.steeringAngleDeg = row["target"]
       self.tick()  # full-rate recorded EPAS samples, approximately 100 Hz
-      was_latched |= self.c.low_speed_turn_takeover_latched
+      was_latched |= self.c.steering_takeover_latched
       if row["t"] >= 158.8:
-        released |= not self.c.low_speed_turn_takeover_latched and row["left"]
+        released |= not self.c.steering_takeover_latched and row["left"]
     self.assertTrue(was_latched)
-    self.assertTrue(released)
+    self.assertFalse(released)
+    self.assertFalse(self.c.tesla_can.create_steering_control.call_args.args[2])

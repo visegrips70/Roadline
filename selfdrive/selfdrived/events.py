@@ -923,6 +923,11 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.NO_ENTRY: NoEntryAlert("Electronic Stability Control Active"),
   },
 
+  EventName.roadlineTurnConflict: {
+    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("Turn Direction Conflict"),
+    ET.NO_ENTRY: NoEntryAlert("Turn Direction Conflict: Cancel Cruise"),
+  },
+
   EventName.controlsMismatch: {
     ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("Controls Mismatch"),
     ET.NO_ENTRY: NoEntryAlert("Controls Mismatch"),

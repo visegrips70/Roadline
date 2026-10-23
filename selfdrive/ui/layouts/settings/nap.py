@@ -142,7 +142,8 @@ class NAPLayout(Widget):
       "Lane Position (1 cm steps)", self._lane_position_label,
       "Enter -30 to +30 cm: negative is left, positive is right, 0 is center. "
       "Requires Lane Centering Assist and clear lane lines. Narrow lanes limit the preference. "
-      "This does not calibrate the camera or change the displayed green path. Change while parked.",
+      "This does not calibrate the camera or change the displayed green path. "
+      "The driving screen also offers Left, Center and Right buttons in 1 cm steps.",
       callback=self._on_lane_position_click, enabled=lambda: ui_state.is_offroad,
     )
     self._all_items.append(self._lane_position_button)
@@ -375,7 +376,7 @@ class NAPLayout(Widget):
     self._reset_defaults_btn = button_item(
       "Reset to Defaults",
       "Reset",
-      description="Reset all NAP settings to factory defaults. This cannot be undone.",
+      description="Reset all Roadline settings to factory defaults. This cannot be undone.",
       callback=self._on_reset_defaults,
     )
     self._reset_defaults_btn.action_item.set_enabled(ui_state.is_offroad)
@@ -593,7 +594,7 @@ class NAPLayout(Widget):
 
     content = (
       "<h1>Reset to Defaults</h1><br>"
-      + "<p>This will reset all NAP settings to their factory default values. "
+      + "<p>This will reset all Roadline settings to their factory default values. "
       + "This action cannot be undone.</p>"
     )
     dlg = ConfirmDialog(content, "Reset All", rich=True, callback=confirm_callback)

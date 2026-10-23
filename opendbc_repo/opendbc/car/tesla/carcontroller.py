@@ -14,7 +14,8 @@ from opendbc.car.tesla.preap.stock_cc_spoofer import StockCCSpoofer
 from opendbc.car.tesla.preap.parked_signal_test import ParkedSignalTest
 from opendbc.car.tesla.preap.tap_lane_change import NavigationSignalController, TapController
 from opendbc.car.tesla.preap.nap_params import NAPParamKeys
-from opendbc.car.tesla.preap.steering_override import hands_on_override, takeover_torque_threshold
+from opendbc.car.tesla.preap.steering_override import steering_takeover_requested
+from opendbc.car.tesla.preap.turn_safety import TurnDirectionGuard
 
 def get_safety_CP():
   from opendbc.car.tesla.interface import CarInterface
@@ -110,110 +111,41 @@ class CarController(CarControllerBase):
     speed_mph = CS.out.vEgo * 2.236936
     blinker_on = bool(CS.out.leftBlinker) != bool(CS.out.rightBlinker)
 
-    # PREAP_LOW_SPEED_TURN_TAKEOVER_LATCH_V1
-    # Preserve the wider low-speed turn profile when openpilot remains in
-    # control. If the driver takes over below 15 mph during that maneuver,
-    # resume from the measured angle after 0.20 s without driver effort.
-    if not hasattr(self, "low_speed_turn_exit_timer"):
-      self.low_speed_turn_exit_timer = 0
-
-    if not hasattr(self, "low_speed_turn_takeover_latched"):
-      self.low_speed_turn_takeover_latched = False
-      self.low_speed_turn_reacquire_timer = 0
-
-    if blinker_on and speed_mph < 25.0:
-      self.low_speed_turn_exit_timer = 100
-    elif self.low_speed_turn_exit_timer > 0:
-      self.low_speed_turn_exit_timer -= 1
-
     low_speed_turn_profile = (
       speed_mph < 25.0
       and blinker_on
     )
 
-    city_turn_context = (
-      low_speed_turn_profile
-    )
+    driver_pulling = (steering_takeover_requested(
+      getattr(CS, "hands_on_level", 0), CS.out.steeringTorque, CS.out.vEgo,
+      blinker_on, CS.out.steeringPressed) or getattr(CS.out, "steeringDisengage", False))
 
-    # --- HUMAN STEERING OVERRIDE V6 ---
-    if not hasattr(self, "hso_timer"):
-      self.hso_timer = 0
+    # Takeover cancels both axes. Never reacquire merely because driver
+    # effort, an indicator, or a timer expires. Observe full disengagement
+    # before allowing the FSM's next fresh stalk engagement to take effect.
+    if not hasattr(self, "steering_takeover_latched"):
+      self.steering_takeover_latched = False
+    if not CC.enabled and not CS.cruiseEnabled:
+      self.steering_takeover_latched = False
+    # Ordinary manual steering with Roadline fully off is not a takeover.
+    # In particular, it must not cancel independently selected stock cruise.
+    if driver_pulling and (CC.enabled or CS.cruiseEnabled):
+      self.steering_takeover_latched = True
 
-    hands_on_level = getattr(
-      CS,
-      "hands_on_level",
-      0,
-    )
-
-    # Below 15 mph use the requested 5 Nm allowance. Above it, restore
-    # legacy HSO: direct 3 Nm with a signal, filtered torque otherwise,
-    # and EPAS level 3 as the immediate takeover path in every band.
-    hands_on_trigger = (hands_on_override(hands_on_level, CS.out.steeringTorque,
-                                         takeover_torque_threshold(CS.out.vEgo, city_turn=blinker_on))
-                        if speed_mph < 15.0 or blinker_on else hands_on_level >= 3)
-
-    driver_pulling = (
-      CS.out.steeringPressed
-      or hands_on_trigger
-    )
-
-    if driver_pulling:
-      self.hso_timer = 20 if blinker_on and speed_mph < 15.0 else 50
-
-    # A takeover that begins during a sub-25-mph turn remains latched.
-    # This prevents the 0.5-second HSO timer from expiring while the model
-    # is still requesting the previous curved path.
-    if not CC.latActive:
-      self.low_speed_turn_takeover_latched = False
-      self.low_speed_turn_reacquire_timer = 0
-      self.hso_recovery_progress = 0.30
-
-    elif driver_pulling and city_turn_context:
-      self.low_speed_turn_takeover_latched = True
-      self.low_speed_turn_reacquire_timer = 0
-
-    elif self.low_speed_turn_takeover_latched:
-      # Resume within the turn after quiet effort; a curved wheel is valid.
-      quiet = (not driver_pulling and CS.out.canValid
-               and np.isfinite(CS.out.steeringAngleDeg)
-               and np.isfinite(actuators.steeringAngleDeg))
-      self.low_speed_turn_reacquire_timer = self.low_speed_turn_reacquire_timer + 1 if quiet else 0
-      if self.low_speed_turn_reacquire_timer >= 20:
-        self.low_speed_turn_takeover_latched = False
-        self.low_speed_turn_reacquire_timer = 0
-        self.apply_angle_last = CS.out.steeringAngleDeg
-        self.hso_recovery_angle = CS.out.steeringAngleDeg
-        self.hso_recovery_progress = 0.0
-
-    if self.low_speed_turn_takeover_latched:
-      # Cancel the boosted exit profile after a driver takeover. If lateral
-      # control later reacquires, it will use the normal Tesla steering rate.
-      self.low_speed_turn_exit_timer = 0
+    if not hasattr(self, "turn_direction_guard"):
+      self.turn_direction_guard = TurnDirectionGuard()
+    # Independent final request check before packing steering or pedal CAN.
+    turn_blocked = self.turn_direction_guard.update(
+      CS.out, [actuators.curvature] if CC.latActive else [],
+      enabled=CC.enabled, cruise_enabled=CS.cruiseEnabled)
+    overriding = self.steering_takeover_latched or turn_blocked
+    control_allowed = CC.enabled and CS.cruiseEnabled and not overriding
+    if overriding:
       low_speed_turn_profile = False
-
-    overriding = (
-      self.hso_timer > 0
-      or self.low_speed_turn_takeover_latched
-    )
-
-    if self.hso_timer > 0:
-      self.hso_timer -= 1
-
-    lat_active = (
-      CC.latActive
-      and not overriding
-    )
-    # ----------------------------------
+    lat_active = control_allowed and CC.latActive
 
     if self.frame % 2 == 0:
       target_angle = CS.out.steeringAngleDeg if overriding else actuators.steeringAngleDeg
-      progress = getattr(self, 'hso_recovery_progress', .30)
-      if lat_active and speed_mph < 25.0 and progress < .30:
-        # Blend back from the measured handback angle; existing rate, jerk
-        # and acceleration limits still constrain the transmitted target.
-        fraction = progress / .30
-        target_angle = self.hso_recovery_angle + fraction * (target_angle - self.hso_recovery_angle)
-        self.hso_recovery_progress = min(.30, progress + .02)
       if overriding:
         self.apply_angle_last = CS.out.steeringAngleDeg
 
@@ -277,9 +209,11 @@ class CarController(CarControllerBase):
     CS.pccEvent = None
 
     if self.CP.openpilotLongitudinalControl:
-      can_sends.extend(self.preap_long.update(CC, CS, self.frame, self.tesla_can, CANBUS.party))
+      can_sends.extend(self.preap_long.update(CC, CS, self.frame, self.tesla_can, CANBUS.party,
+                                            control_allowed=control_allowed))
 
-    can_sends.extend(self.stock_cc.update(CS, self.frame, self.tesla_can, CANBUS.party))
+    can_sends.extend(self.stock_cc.update(CS, self.frame, self.tesla_can, CANBUS.party,
+                                        cancel_override=overriding))
     if self.stock_cc.pcc_event:
       CS.pccEvent = self.stock_cc.pcc_event
 
@@ -292,10 +226,10 @@ class CarController(CarControllerBase):
                    and self.tap_params.get_bool(NAPParamKeys.TAP_LANE_CHANGE))
     can_sends.extend(self.tap_lane_change.update(
       CS.tap_stalk, CS.out, enabled=tap_enabled,
-      lateral_active=CC.latActive, overriding=overriding, existing=can_sends))
+      lateral_active=lat_active, overriding=overriding, existing=can_sends))
 
     can_sends.extend(self.navigation_signal.update(
-      CS.tap_stalk, CS.out, lateral_active=CC.latActive,
+      CS.tap_stalk, CS.out, lateral_active=lat_active,
       overriding=overriding, existing=can_sends))
 
     new_actuators = actuators.as_builder()

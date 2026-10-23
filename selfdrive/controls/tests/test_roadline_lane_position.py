@@ -69,3 +69,22 @@ class TestLanePreference:
       md = model()
       md.laneLineProbs[2] = 0.5
       assert step(LaneCenteringAssist(), md, offset_cm=cm) == 0
+
+
+def test_live_preference_reversal_and_center_preserve_output_limits():
+  assist = LaneCenteringAssist()
+  md = model(0.)
+  speed = 15.
+  previous = 0.
+  # Exercise full-range preference changes during continuous active control.
+  # The production output slew limit, not the UI tap cadence, bounds actuation.
+  for preference in (-30, 30, 0, -10, 10, 0):
+    for _ in range(400):
+      curvature = assist.update(md, speed, 0., enabled=True, active=True,
+                                healthy=True, overriding=False, strength=3,
+                                offset_cm=preference, dt=.01)
+      accel = curvature * speed ** 2
+      assert abs(accel) <= assist.MAX_ACCEL + 1e-9
+      assert abs(accel - previous) <= assist.MAX_JERK * .01 + 1e-9
+      previous = accel
+  assert abs(previous) < 1e-9

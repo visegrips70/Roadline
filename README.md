@@ -1,6 +1,18 @@
+# Draft repair candidate — release blocked
+
+See the [drive review](docs/roadline/DRIVE_REVIEW_2026-10-22.md) for remaining incident evidence and vehicle checks. Approved Roadline graphics are included; see [branding status](docs/roadline/BRANDING_UPLOAD_STATUS.md). This branch is not an install release.
+
 # Roadline
 
-A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.
+**Built on NAP (NotAutopilot), Philip's pre-AP work, and comma.ai openpilot.**
+
+Roadline is a development fork for pre-Autopilot Tesla Model S and comma 3X.
+The underlying driving stack and most of this source come from those projects
+and their contributors. Roadline adds its own adjustments, repairs, and presentation
+on top of their work. Please start with the [upstream credits](CREDITS.md), including
+[NotAutopilot](https://github.com/NotAutopilot/openpilot),
+[Philip's fork](https://github.com/philipr144-create/openpilot-preap), and
+[comma.ai openpilot](https://github.com/commaai/openpilot).
 
 **Development source only. Not ready for installation or road use.**
 The clean GitHub build, control/dashboard/safety tests and static analysis pass.
@@ -56,7 +68,8 @@ unknown. Preserve settings/calibration and establish a usable recovery path.
 
 See [VALIDATION.md](docs/roadline/VALIDATION.md) for build/test commands and release
 gates, and [PROVENANCE.md](docs/roadline/PROVENANCE.md) for exact upstream revisions.
-All source changes belong to Roadline; no upstream repositories are modified.
+Roadline-specific changes are maintained in this repository; no upstream
+repositories are modified. Inherited work remains credited to its authors.
 
 After building the native dependencies, a read-only local log report can be run:
 
@@ -70,7 +83,9 @@ percentages alone cannot prove whether an alert was justified.
 
 ## Attribution
 
-Based on Philip's work, NotAutopilot, comma.ai openpilot, and their contributors.
+Roadline is an independent derivative, not an official NAP, Philip, or comma.ai
+release. Those projects have not endorsed Roadline's changes. See [CREDITS.md](CREDITS.md)
+for the foundation and the scope of Roadline's contributions.
 Original licensing and attribution are preserved. Historical upstream material
 is retained in [UPSTREAM_README.md](docs/roadline/UPSTREAM_README.md); its installer
 links are for upstream NAP, not for Roadline.

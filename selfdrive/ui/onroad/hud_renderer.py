@@ -4,6 +4,7 @@ import os
 import time
 from dataclasses import dataclass
 from openpilot.common.constants import CV
+from openpilot.common.lane_position import MIN_OFFSET_CM, MAX_OFFSET_CM, offset_label, resolve_offset_cm
 from openpilot.selfdrive.ui.engagement_stats import hud_text
 from openpilot.selfdrive.ui.onroad.exp_button import ExpButton
 from openpilot.selfdrive.ui.ui_state import ui_state, UIStatus
@@ -139,6 +140,11 @@ class HudRenderer(Widget):
     self._exp_button = ExpButton(UI_CONFIG.button_size, UI_CONFIG.wheel_icon_size)
     self.follow_dist = 3
     self.personality = 1
+    self.lane_offset_cm = 0
+    self._last_lane_change = -float('inf')
+    self._lane_left_rect = rl.Rectangle(0, 0, 0, 0)
+    self._lane_center_rect = rl.Rectangle(0, 0, 0, 0)
+    self._lane_right_rect = rl.Rectangle(0, 0, 0, 0)
     self._last_param_check_frame = 0
     self._ignore_param_reads_until = 0
     self._btn_pressed = None
@@ -320,6 +326,8 @@ class HudRenderer(Widget):
     if _params is None: return
     if self._last_param_check_frame < self._ignore_param_reads_until: return
     try:
+      self.lane_offset_cm = resolve_offset_cm(
+        _params.get("RoadlineLaneOffsetCm"), _params.get("NAPLaneCenterOffset"))
       d_raw = _params.get(FOLLOW_KEY_STR)
       if d_raw is not None:
         val = int(d_raw)
@@ -335,6 +343,28 @@ class HudRenderer(Widget):
     if new_val != self.follow_dist:
       self.follow_dist = new_val
       self._safe_write_param(FOLLOW_KEY_STR, self.follow_dist)
+
+  def _lane_controls_available(self):
+    return (_params is not None
+            and getattr(ui_state.CP, "carFingerprint", None) == "TESLA_MODEL_S_PREAP"
+            and _params.get_bool("NAPLaneCentering"))
+
+  def _set_lane_position(self, change=None):
+    if not self._lane_controls_available():
+      return
+    now = time.monotonic()
+    if now - self._last_lane_change < .25:
+      return
+    current = resolve_offset_cm(
+      _params.get("RoadlineLaneOffsetCm"), _params.get("NAPLaneCenterOffset"))
+    target = 0 if change is None else max(MIN_OFFSET_CM, min(MAX_OFFSET_CM, current + change))
+    try:
+      # Show the new preference only after persistence succeeds.
+      _params.put("RoadlineLaneOffsetCm", target)
+    except Exception:
+      return
+    self.lane_offset_cm = target
+    self._last_lane_change = now
 
   def _set_pers(self, change: int) -> None:
     new_val = max(0, min(2, int(self.personality) + int(change)))
@@ -409,7 +439,7 @@ class HudRenderer(Widget):
       self._intent_title, self._intent_source, self._intent_detail, self._intent_kind = classify_intent(
         enabled=ui_state.engaged,
         gas=bool(car_state.gasPressed),
-        brake=bool(car_state.brakePressed),
+        brake=bool(car_state.brakePressed or car_state.brake > 0),
         steering=bool(car_state.steeringPressed),
         left_blinker=bool(car_state.leftBlinker),
         right_blinker=bool(car_state.rightBlinker),
@@ -527,6 +557,10 @@ class HudRenderer(Widget):
     elif rl.check_collision_point_rec(mouse_pos, self._dist_plus_rect): active_btn = "dist_plus"
     elif rl.check_collision_point_rec(mouse_pos, self._pers_minus_rect): active_btn = "pers_min"
     elif rl.check_collision_point_rec(mouse_pos, self._pers_plus_rect): active_btn = "pers_plus"
+    elif self._lane_controls_available():
+      if rl.check_collision_point_rec(mouse_pos, self._lane_left_rect): active_btn = "lane_left"
+      elif rl.check_collision_point_rec(mouse_pos, self._lane_right_rect): active_btn = "lane_right"
+      elif rl.check_collision_point_rec(mouse_pos, self._lane_center_rect): active_btn = "lane_center"
     
     if mouse_down:
       if self._btn_pressed is None and active_btn: self._btn_pressed = active_btn
@@ -537,6 +571,9 @@ class HudRenderer(Widget):
           elif active_btn == "dist_plus": self._set_dist(1)
           elif active_btn == "pers_min": self._set_pers(-1)
           elif active_btn == "pers_plus": self._set_pers(1)
+          elif active_btn == "lane_left": self._set_lane_position(-1)
+          elif active_btn == "lane_right": self._set_lane_position(1)
+          elif active_btn == "lane_center": self._set_lane_position()
         self._btn_pressed = None
 
   def _draw_onscreen_controls(self, rect: rl.Rectangle) -> None:
@@ -560,6 +597,32 @@ class HudRenderer(Widget):
     self._draw_label(lbl_rect2, f"DIST: {self.follow_dist}")
     self._dist_plus_rect = rl.Rectangle(x + btn_w + gap + lbl_w + gap, y_dist, btn_w, h)
     self._draw_btn(self._dist_plus_rect, "+", self._btn_pressed == "dist_plus")
+    self._draw_lane_controls(rect, x, y_pers - 105)
+
+  def _draw_lane_controls(self, rect, x, y):
+    # Compact third row above the existing controls; never cover the intent card.
+    if not self._lane_controls_available() or y < rect.y + 500:
+      self._lane_left_rect = self._lane_center_rect = self._lane_right_rect = rl.Rectangle(0, 0, 0, 0)
+      return
+    self._lane_left_rect = rl.Rectangle(x, y, 100, 90)
+    self._lane_center_rect = rl.Rectangle(x + 390, y, 140, 90)
+    self._lane_right_rect = rl.Rectangle(x + 545, y, 100, 90)
+    label = rl.Rectangle(x + 115, y, 260, 90)
+    items = [
+      (self._lane_left_rect, "Left", "lane_left", 32),
+      (self._lane_center_rect, "Center", "lane_center", 32),
+      (self._lane_right_rect, "Right", "lane_right", 32),
+      (label, offset_label(self.lane_offset_cm), None, 32),
+    ]
+    for box, text, button, size in items:
+      pressed = button is not None and self._btn_pressed == button
+      rl.draw_rectangle_rounded(box, .25, 10, COLORS.BLACK_TRANSLUCENT)
+      rl.draw_rectangle_rounded_lines_ex(box, .25, 10, 3,
+                                        COLORS.BTN_ACTIVE if pressed else COLORS.BORDER_TRANSLUCENT)
+      width = measure_text_cached(self._font_medium, text, size).x
+      rl.draw_text_ex(self._font_medium, text,
+                     rl.Vector2(box.x + (box.width - width) / 2, box.y + (box.height - size) / 2),
+                     size, 0, COLORS.WHITE)
 
   def _draw_btn(self, r: rl.Rectangle, text: str, pressed: bool) -> None:
     bg = COLORS.BLACK_TRANSLUCENT if not pressed else rl.Color(40, 40, 40, 220)
@@ -576,7 +639,18 @@ class HudRenderer(Widget):
     w = measure_text_cached(self._font_semi_bold, text, FONT_SIZES.ctrl_lbl).x
     rl.draw_text_ex(self._font_semi_bold, text, rl.Vector2(r.x + (r.width - w) / 2, r.y + 35), FONT_SIZES.ctrl_lbl, 0, COLORS.WHITE)
 
-  def user_interacting(self) -> bool: return self._exp_button.is_pressed or (self._btn_pressed is not None)
+  def user_interacting(self) -> bool:
+    if self._exp_button.is_pressed or self._btn_pressed is not None:
+      return True
+    # The parent receives a press before this widget's next render pass.
+    # Reserve button hits now so the sidebar cannot consume the same tap.
+    point = rl.get_mouse_position()
+    buttons = [self._dist_minus_rect, self._dist_plus_rect,
+               self._pers_minus_rect, self._pers_plus_rect]
+    if self._lane_controls_available():
+      buttons.extend([self._lane_left_rect, self._lane_center_rect, self._lane_right_rect])
+    return any(box.width > 0 and box.height > 0 and rl.check_collision_point_rec(point, box)
+               for box in buttons)
   def _draw_set_speed(self, rect: rl.Rectangle) -> None:
     set_speed_width = UI_CONFIG.set_speed_width_metric if ui_state.is_metric else UI_CONFIG.set_speed_width_imperial
     x = rect.x + UI_CONFIG.border_size + UI_CONFIG.button_size + 40

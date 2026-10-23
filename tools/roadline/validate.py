@@ -11,14 +11,20 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 FOCUSED = [
   'selfdrive/ui/tests/test_roadline_settings.py',
+  'selfdrive/ui/tests/test_roadline_live_lane.py',
+  'selfdrive/selfdrived/tests',
   'selfdrive/controls/tests/test_roadline_lane_position.py',
   'selfdrive/controls/tests/test_roadline_lane_simulation.py',
   'selfdrive/controls/tests/test_lane_centering.py',
   'tools/roadline/tests',
+  'tools/roadline/test_branding.py',
+  'tools/roadline/test_download_release.py',
+  'tools/roadline/test_verify_install_url.py',
   'selfdrive/monitoring/test_monitoring.py',
   'opendbc_repo/opendbc/safety/tests/test_tesla_preap.py',
 ]
-FEATURES = ['selfdrive/controls/tests', 'selfdrive/controls/lib/tests']
+FEATURES = ['selfdrive/controls/tests', 'selfdrive/controls/lib/tests',
+            'opendbc_repo/opendbc/car/tesla/preap/tests']
 
 
 def main():
