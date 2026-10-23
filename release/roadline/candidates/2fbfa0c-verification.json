@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "source_revision": "2fbfa0c654230ead83596e2f6a474f8a8692f464",
+  "packaging_revision": "e0e2a2bd248509e7ff7d7db18df34e84e0e67dee",
+  "target": {
+    "model": "comma tizi",
+    "architecture": "aarch64",
+    "agnos": "17.2"
+  },
+  "artifact_verification": {
+    "runtime_archive_sha256": "123d76274b036eec898ca6d1798e88f25f7f89b32b1b48523771ae1c17b35ef6",
+    "payload_sha256": "a93bec8362161c117c36139842c253cbb32bfb7135ac0bc3c7bb7137babdecea",
+    "file_count": 3892,
+    "file_bytes": 488856385,
+    "all_reported_file_hashes_match": true,
+    "archive_modes_and_symlinks_match_payload_hash": true,
+    "installer_sha256": "e2cdbe18ee902534c0b97ad898f604d884f76c77d86a578bd5333694cb623f61",
+    "installer_bytes": 2040440
+  },
+  "validation": {
+    "native_build": "user-reported successful build; uploaded ARM64 installer and runtime inspected",
+    "desktop_ci": "https://github.com/visegrips70/Roadline/actions/runs/40000142652",
+    "native_runtime_execution": "pending",
+    "clean_setup_install": "pending",
+    "settings_restore": "pending",
+    "rollback": "pending"
+  },
+  "publication_enabled": false,
+  "road_ready": false,
+  "notes": [
+    "Private-key and credential-pattern hits were synthetic test fixtures. No actual private-key material was found by these checks; this is not an exhaustive security audit.",
+    "No installation or device activation was performed during archive review.",
+    "No startup test or rollback success may be inferred from compilation or file verification."
+  ]
+}
