@@ -104,6 +104,18 @@ class PreAPEngagement:
         self.longCtrlEvent = "pccDisabled"
     self.prev_steering_disengage = steering_disengage
 
+  def handle_pedal_unavailable(self):
+    """Drop pedal control on a fault/stale stream; recovery needs a new gesture."""
+    if self.enableLongControl:
+      self.longCtrlEvent = "pccDisabled"
+    self.enableLongControl = False
+    self.enableJustCC = self.cruiseEnabled
+    self.pending_enable = False
+    self.pedal_speed_kph = 0.0
+    self.stalk_pull_time_ms = 0
+    self.prev_stalk_pull_time_ms = -1000
+    self.clear_brake_resume()
+
   def process_buttons(self, cruise_buttons, prev_cruise_buttons, curr_time_ms,
                       v_ego, speed_units, use_pedal, pedal_long_allowed,
                       long_control_allowed, real_brake_pressed, di_cruise_state="OFF"):

@@ -51,7 +51,9 @@ class PreAPLongController:
     # send pedal commands for smooth transitions.
     # A stale software-cruise latch must not send an enabled hold command
     # after selfdrived has disabled the system (including Controls Mismatch).
-    pedal_engaged = requested_long and pedal_long_allowed and CC.enabled and control_allowed
+    # Reject faulted/stale feedback even if an engagement request is still in
+    # flight. Disabled passthrough commands below can recover a timeout fault.
+    pedal_engaged = requested_long and pedal_long_allowed and CC.enabled and control_allowed and CS.pedal.available
 
     # --- Engage transition ---
     requested_long_rising = (not self.prev_requested_long) and requested_long

@@ -163,8 +163,6 @@ def update_preap(cs, can_parsers):
   use_pedal = nap_conf.use_pedal
   pedal_factor = float(nap_conf.pedal_factor)
   pedal_transform_valid = math.isfinite(pedal_factor) and abs(pedal_factor) > 1e-6
-  pedal_long_allowed = use_pedal and pedal_transform_valid
-  long_control_allowed = (not use_pedal) or pedal_transform_valid
 
   # Read fresh pedal feedback before evaluating a new resume gesture.
   gas_sensor = cp_ap_party.vl.get("GAS_SENSOR", {})
@@ -174,6 +172,11 @@ def update_preap(cs, can_parsers):
   cs.pedal_timeout = cs.pedal.timeout
   if use_pedal:
     ret.gasPressed = cs.pedal.gas_pressed
+    if not cs.pedal.available:
+      cs.engagement.handle_pedal_unavailable()
+
+  pedal_long_allowed = use_pedal and pedal_transform_valid and cs.pedal.available
+  long_control_allowed = (not use_pedal) or pedal_long_allowed
 
   button_events = cs.engagement.process_buttons(
     cs.cruise_buttons, cs.prev_cruise_buttons, curr_time_ms,

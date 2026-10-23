@@ -100,6 +100,9 @@ static bool preap_doors_open = false;
 // Stalk echo filter
 static uint32_t preap_last_stalk_engage_us = 0;
 #define PREAP_CANCEL_ECHO_WINDOW_US 600000U  // 600ms
+static int preap_stalk_prev = -1;
+static uint32_t preap_stalk_ts = 0U;
+#define PREAP_STALK_FRESH_US 250000U
 
 // Radar emulation state
 static int preap_radar_status = 0;
@@ -446,19 +449,31 @@ static void tesla_preap_rx_hook(const CANPacket_t *msg) {
     // Stalk engagement (STW_ACTN_RQ: 0x45) with echo-filtered cancel
     if (msg->addr == 0x45U) {
       int lever = msg->data[0] & 0x3FU;
+      uint32_t now = microsecond_timer_get();
+      bool fresh_pull = (preap_stalk_prev == 0) &&
+                        ((now - preap_stalk_ts) < PREAP_STALK_FRESH_US);
       if (lever == 2) {  // RWD = pull toward driver = enable
-        if ((preap_gear == 4) && !preap_doors_open) {
+        if (fresh_pull && (preap_gear == 4) && !preap_doors_open &&
+            !steering_disengage && !safety_rx_checks_invalid) {
+          // Application/heartbeat disengagement can clear controls_allowed
+          // without clearing the stock-cruise latch. Only a fresh physical
+          // neutral -> pull gesture may reset that latch and request re-arm.
+          // A held pull, startup with the stalk held, or releasing an override
+          // while holding the stalk must never restore permission.
+          cruise_engaged_prev = false;
           pcm_cruise_check(true);
-          preap_last_stalk_engage_us = microsecond_timer_get();
+          preap_last_stalk_engage_us = now;
         }
       } else if (lever == 1) {  // FWD = push away = cancel
-        uint32_t elapsed = microsecond_timer_get() - preap_last_stalk_engage_us;
+        uint32_t elapsed = now - preap_last_stalk_engage_us;
         if (elapsed > PREAP_CANCEL_ECHO_WINDOW_US) {
           pcm_cruise_check(false);
         }
       } else {
         // Other stalk positions do not change engagement.
       }
+      preap_stalk_prev = lever;
+      preap_stalk_ts = now;
     }
   } else {
     // Ignore other messages off the chassis bus.
@@ -619,6 +634,8 @@ static safety_config tesla_preap_init(uint16_t param) {
   preap_radar_status = 0;
   preap_last_radar_signal = 0;
   preap_last_stalk_engage_us = 0;
+  preap_stalk_prev = -1;
+  preap_stalk_ts = 0U;
   preap_radar_position = preap_radar_behind_nosecone ? 1U : 0U;
 
   // TX whitelist — no harness relay on Pre-AP
