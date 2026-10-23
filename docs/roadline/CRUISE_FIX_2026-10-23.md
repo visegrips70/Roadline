@@ -70,3 +70,64 @@ The disconnected radar remains outside this change. A transmitting pedal and
 restored calibration do not establish healthy pedal actuation. The recorded
 status nibble was 5 with pedal output disabled; it must not be treated as status
 0 or bypassed. Preserve NAP/Philip and comma attribution already in the project.
+
+## Native package and guarded first start (October 23 follow-up)
+
+The operator reported a successful native Comma 3X build of source
+`c79c68fe5dac6d9668aadb6a64ee7b0557e89599` with build exit code 0.
+The package contains 3,915 regular files and has payload checksum
+`44a6e1ea33f500395653002ad0b1062186f8501532f2ed05eae70c5e0e4c9986`.
+Its Panda H7 firmware checksum is
+`8ece3dee9a1fb90f8d048272ea26a7bf26f6646e18e0100802b77bbec8eb0fc0`.
+These are operator-supplied file observations, not live hardware validation.
+
+The original CI run found 12 inherited tests using incomplete pedal doubles or
+uninitialized feedback. Test-only commit `53dd4d62d7444f4cebf00a55f0fa2fb58f198e09`
+provides explicit healthy feedback without weakening any existing assertion and
+adds fault/timeout packed-command checks. Its full development validation passed:
+https://github.com/visegrips70/Roadline/actions/runs/40032967778
+The driving code and firmware source are identical to the native c79c68f build.
+
+`tools/roadline/start_cruise_candidate.py` is for this exact package and a clean
+2fbfa0c installation stored as the real `/data/openpilot` directory. It rehashes
+the complete package, checks both firmware baselines, and copies the runtime to
+`/data/roadline-runtime-c79c68f`, leaving the original package unused. It stops
+the comma service, snapshots selected driving settings and calibration locally,
+preserves the old installation at `/data/roadline-before-cruise-c79c68f`, and
+switches the active link. Recovery files stay in the root-only directory
+`/data/roadline-cruise-recovery-c79c68f`. Nothing from the device is uploaded.
+
+Run start and rollback only with vehicle wiring disconnected and stable separate
+power. Normal pandad startup can flash the internal Panda; the helper does not
+flash the pedal, radar or EPAS. It never enables assistance, pedal control,
+navigation maneuvers, radar or updates. Every subsequent candidate boot also
+keeps those controls disabled until a separately reviewed promotion. The candidate
+stays selected after normal reboot; there is no timer returning to the old build.
+An interrupted directory swap is recovered through `/data/continue.sh` without
+writing to the read-only OS partition.
+
+After first start, read status on the Comma with:
+
+```sh
+sudo -n /usr/bin/python3 /data/roadline-cruise-recovery-c79c68f/control.py status
+```
+
+Manual return, with vehicle wiring disconnected and separate power:
+
+```sh
+sudo -n /usr/bin/python3 /data/roadline-cruise-recovery-c79c68f/control.py rollback --vehicle-disconnected
+```
+
+Rollback restores the previous directory and selected settings, leaving assistance
+and pedal control disabled. Its normal Panda startup must finish; restoring the
+software path alone does not prove firmware recovery. The helper refuses to
+overwrite an unknown active path, changed launcher or corrupted snapshot. A
+failed pre-switch preparation can leave an inactive runtime copy; inspect status
+rather than deleting it or blindly retrying.
+
+Nineteen host tests cover normal start and reboot, real local Git metadata,
+interrupted switch and rollback gaps, failed service startup, parameter snapshot
+failure, checksum/mode/link tampering, onroad refusal, repeated starts, preserved
+calibration and refusal to overwrite externally changed paths. Services and
+vehicle hardware are simulated. Bench startup and live stationary checks remain
+outstanding; public installer publication and road readiness are unchanged.
