@@ -148,7 +148,7 @@ def test_steering_takeover_requires_fresh_engagement_without_recentering_wheel()
  from opendbc.car.tesla import carcontroller as ccmod
  c=ccmod.CarController.__new__(ccmod.CarController)
  c.CP=N(openpilotLongitudinalControl=False);c.frame=0;c.apply_angle_last=25.;c.VM=MagicMock()
- c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a:[],pcc_event=None)
+ c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a,**kw:[],pcc_event=None)
  c.parked_signal_test=N(update=lambda *a:[]);c.tap_lane_change=N(update=lambda *a,**kw:[])
  c.navigation_signal=N(update=lambda *a,**kw:[]);c.tap_params=None
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True

@@ -53,7 +53,7 @@ def test_city_controller_cancels_until_fresh_engagement_at_18_mph():
  c=module.CarController.__new__(module.CarController)
  c.frame=2;c.CP=N(openpilotLongitudinalControl=False);c.apply_angle_last=90.;c.VM=None
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True;c.tap_params=None
- c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a:[],pcc_event=None)
+ c.tesla_can=MagicMock();c.stock_cc=N(update=lambda *a,**kw:[],pcc_event=None)
  c.parked_signal_test=N(update=lambda *a:[]);c.tap_lane_change=N(update=lambda *a,**k:[]);c.navigation_signal=N(update=lambda *a,**k:[])
  state=N(out=N(vEgo=18*.44704,vEgoRaw=18*.44704,leftBlinker=True,rightBlinker=False,steeringPressed=False,steeringAngleDeg=90.,steeringTorque=3.5,canValid=True),hands_on_level=1,tap_stalk=N(),cruiseEnabled=True)
  builder=car.CarControl.new_message();builder.enabled=builder.latActive=True;builder.actuators.steeringAngleDeg=120.;cc=builder.as_reader()

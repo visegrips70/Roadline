@@ -93,6 +93,7 @@ class TeslaTakeover(unittest.TestCase):
     self.cs.out.steeringPressed=True
     self.tick()
     self.assertTrue(self.c.steering_takeover_latched)
+    self.assertTrue(self.c.stock_cc.update.call_args.kwargs['cancel_override'])
     self.cs.out.steeringPressed=False
     self.tick(200)
     self.assertTrue(self.c.steering_takeover_latched)

@@ -210,7 +210,8 @@ class CarController(CarControllerBase):
       can_sends.extend(self.preap_long.update(CC, CS, self.frame, self.tesla_can, CANBUS.party,
                                             control_allowed=control_allowed))
 
-    can_sends.extend(self.stock_cc.update(CS, self.frame, self.tesla_can, CANBUS.party))
+    can_sends.extend(self.stock_cc.update(CS, self.frame, self.tesla_can, CANBUS.party,
+                                        cancel_override=overriding))
     if self.stock_cc.pcc_event:
       CS.pccEvent = self.stock_cc.pcc_event
 

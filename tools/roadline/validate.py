@@ -20,7 +20,8 @@ FOCUSED = [
   'selfdrive/monitoring/test_monitoring.py',
   'opendbc_repo/opendbc/safety/tests/test_tesla_preap.py',
 ]
-FEATURES = ['selfdrive/controls/tests', 'selfdrive/controls/lib/tests']
+FEATURES = ['selfdrive/controls/tests', 'selfdrive/controls/lib/tests',
+            'opendbc_repo/opendbc/car/tesla/preap/tests']
 
 
 def main():

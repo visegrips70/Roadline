@@ -208,3 +208,42 @@ class TestCounterMath:
     # Counter = (15+1) % 16 = 0
     last_call = can.create_action_request.call_args_list[-1]
     assert last_call.args[2] == 0
+
+
+class TestTakeoverCancellation:
+  def test_same_frame_cancel_beats_engage_and_does_not_queue_it(self):
+    spoofer, can = StockCCSpoofer(), make_can()
+    cs = make_cs(cancel_needed=True, engage_needed=True, di_cruise_state="STANDBY")
+    tick_until(spoofer, cs, can, CAN_BUS, 0, 80)
+    assert not cs.preap_cc_engage_needed
+    assert spoofer.cc_engage_phase == 0
+    assert can.create_action_request.called
+    assert all(call.args[0] == CruiseButtons.CANCEL for call in can.create_action_request.call_args_list)
+
+  def test_takeover_aborts_retry_and_uses_next_slot_without_handoff_delay(self):
+    spoofer, can = StockCCSpoofer(), make_can()
+    cs = make_cs(engage_needed=True, di_cruise_state="STANDBY")
+    spoofer.update(cs, 0, can, CAN_BUS)
+    can.reset_mock()
+    for frame in range(5, 40):
+      cs.preap_cc_engage_needed = True  # Deliberately stale requests while blocked.
+      sends = spoofer.update(cs, frame, can, CAN_BUS, cancel_override=True)
+      if frame == 10:
+        assert sends
+    assert spoofer.cc_engage_phase == 0
+    assert all(call.args[0] == CruiseButtons.CANCEL for call in can.create_action_request.call_args_list)
+    can.reset_mock()
+    tick_until(spoofer, cs, can, CAN_BUS, 40, 60)
+    assert not can.create_action_request.called
+    # Only a new FSM request after the blocked period may engage stock cruise.
+    cs.preap_cc_engage_needed = True
+    spoofer.update(cs, 100, can, CAN_BUS)
+    assert can.create_action_request.call_args.args[0] == CruiseButtons.SET_ACCEL
+
+  def test_repeated_takeover_does_not_postpone_cancel_until_driver_releases(self):
+    spoofer, can = StockCCSpoofer(), make_can()
+    cs = make_cs(di_cruise_state="ENABLED")
+    for frame in range(1, 31):
+      spoofer.update(cs, frame, can, CAN_BUS, cancel_override=True)
+    assert can.create_action_request.call_count == 3
+    assert all(call.args[0] == CruiseButtons.CANCEL for call in can.create_action_request.call_args_list)

@@ -153,3 +153,12 @@ limits. Two older actuator test doubles now explicitly include zero curvature;
 production direction validation was not relaxed for incomplete mocks.
 See [navigation and lane-position notes](NAVIGATION_AND_LANE_POSITION.md).
 No new tests are claimed passed until their GitHub run finishes.
+
+A subsequent review found that the independent stock-cruise stalk spoofer could
+continue an in-flight engage retry after the steering/pedal controller vetoed
+control. The draft now forwards takeover/turn-fault cancellation to that spoofer,
+aborts and consumes stale engage requests, and sends cancel at the next existing
+transmission slot without the ordinary pedal-handoff delay. Simultaneous cancel
+and engage requests cannot queue a later engage. Existing normal stock-cruise
+operation and the brake-only lateral behavior remain unchanged. Added stock-CC
+regressions and the full Pre-AP unit-test directory are included in validation.
