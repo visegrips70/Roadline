@@ -8,6 +8,8 @@ on:
       - 'tools/roadline/tests/test_apply_passive_startup.py'
       - 'tools/roadline/observe_parked_inputs.py'
       - 'tools/roadline/tests/test_observe_parked_inputs.py'
+      - 'tools/roadline/parked_startup_check.py'
+      - 'tools/roadline/tests/test_parked_startup_check.py'
       - '.github/workflows/roadline-passive-startup.yml'
   pull_request:
     paths:
@@ -17,6 +19,8 @@ on:
       - 'tools/roadline/tests/test_apply_passive_startup.py'
       - 'tools/roadline/observe_parked_inputs.py'
       - 'tools/roadline/tests/test_observe_parked_inputs.py'
+      - 'tools/roadline/parked_startup_check.py'
+      - 'tools/roadline/tests/test_parked_startup_check.py'
       - '.github/workflows/roadline-passive-startup.yml'
   workflow_dispatch:
 permissions:
@@ -43,4 +47,5 @@ jobs:
           PYTHONPATH="$PWD" python -m pytest -c /dev/null --rootdir="$PWD" -p no:cacheprovider --confcutdir=tools/roadline/tests \
             tools/roadline/tests/test_passive_startup.py \
             tools/roadline/tests/test_apply_passive_startup.py \
-            tools/roadline/tests/test_observe_parked_inputs.py -q
+            tools/roadline/tests/test_observe_parked_inputs.py \
+            tools/roadline/tests/test_parked_startup_check.py -q

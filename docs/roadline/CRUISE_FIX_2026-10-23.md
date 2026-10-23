@@ -263,3 +263,57 @@ All 76 focused tests pass locally. Offline replay recovered all 58,848
 factory-pedal observations (0 to 40 percent in the earlier recording), while
 14,712 EPAS and 57,472 interceptor messages passed their existing checksum checks.
 The earlier recording does not replace the current parked accelerator repeat.
+
+### Accelerator repeat and bounded stationary startup
+
+The operator completed the corrected 20-second repeat: 2,001 factory-pedal
+observations ranged from 0 to 99.2 percent and returned to zero. All had the same
+0x07 checksum residual; checksum specification remains unverified. The 1,953
+interceptor messages passed the existing checksum check, both channels changed,
+and all 1,952 counter transitions were consecutive. Pedal state remained 5.
+EPAS reported inhibited/status 0 and temporary-error code 4, with steering-fault
+and reduced-assist bits both zero. This completes the requested passive input
+observation, not actuator, engagement or disengagement validation.
+
+`parked_startup_check.py` provides a bounded **unengaged** initialization check
+for this specific c79c68f runtime plus the verified passive-startup correction.
+It verifies the installed control sources, firmware file, first-start recovery
+script/launcher, offroad state and unchanged saved pedal calibration. It refuses
+an enabled airride endpoint, parked-signal test or pending device action. These
+guards are conditions of this helper, not a claim of a road-ready release.
+
+The device must remain powered, with the vehicle in Park and initially offroad.
+After verifying live noOutput and stopped onroad processes, the helper temporarily
+sets only OpenpilotEnabledToggle and NAPPedalEnabled. The operator then wakes the
+vehicle while remaining in Park, leaving the stalk, accelerator and steering alone.
+The existing manager/card/pandad start normally on that offroad-to-onroad transition;
+the helper neither publishes CAN nor opens a Panda handle or changes safety hooks.
+No recovery launcher, firmware, runtime file or calibration is modified. Normal
+startup sends disabled steering, EPAS allow-mode 1 and raw-zero, enable-zero pedal
+messages. Panda's normal Drive/fresh-stalk engagement restrictions remain intact.
+
+The helper watches Panda permissions/faults, fresh Park and zero-speed data,
+carControl engagement flags, outgoing request bytes and pedal/EPAS feedback.
+An unexpected request or engagement, leaving Park, loss of required telemetry,
+or a reported steering fault/active status aborts. Requests observed on sendcan
+are application requests, not proof of physical delivery. Feedback state changes
+must be interpreted separately. In particular, this test does not establish that
+EPAS must become available in Park, nor establish usable steering or pedal output.
+
+Wake-up has a 45-second limit, initialization a 30-second limit, and observation
+lasts 15 seconds after normal Pre-AP safety initializes with controls disallowed.
+The whole process runs in a transient systemd unit with a 180-second runtime
+limit and an independent ExecStopPost cleanup; a plain SSH invocation is refused.
+A durable pending marker precedes settings changes. Finally/ExecStopPost stop the
+stack, force all six assistance flags off and restart normal passive operation.
+Cleanup attempts all disabled-setting writes even if stopping the service fails;
+any cleanup failure retains the marker and requests no restart. A power loss uses
+the unchanged first-start boot-check, which also forces the settings off.
+
+On successful completion, the helper waits for three seconds of fresh noOutput
+telemetry after the restart. Observations are printed and stored locally in
+`/data/roadline-parked-startup-result.json`. The previous installation and original
+release package remain preserved. This helper has not yet been exercised on the
+device; its 65 simulated regression tests cover request bytes, guards, timeouts,
+transaction failures and cleanup. Together with prior focused tests, 141 pass.
+It is a diagnostic step, not publication or road-test approval.
