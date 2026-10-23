@@ -9,7 +9,7 @@ from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD
 from opendbc.car.tesla.preap.nap_params import NAPParamKeys
 from opendbc.car.tesla.preap.tap_lane_change import PhysicalStalk
 from opendbc.car.tesla.preap.resume_status import ResumeStatus
-from opendbc.car.tesla.preap.steering_override import hands_on_override, takeover_torque_threshold
+from opendbc.car.tesla.preap.steering_override import hands_on_override, takeover_torque_threshold, steering_takeover_requested
 from opendbc.car.tesla.preap.nap_conf import nap_conf, PEDAL_DI_PRESSED
 
 try:
@@ -103,9 +103,11 @@ def update_preap(cs, can_parsers):
   # Controls Mismatch instead of a normal driver disengagement.
   ret.steerFaultTemporary = epas_rejecting
   ret.steeringDisengage = cs.hands_on_level >= 3 or epas_rejecting
-  # Filtered driver effort also cancels software cruise. It must not quietly
-  # hand steering back when the driver releases the wheel.
-  cs.engagement.handle_steering_disengage(ret.steeringDisengage or ret.steeringPressed)
+  # Cancel cruise for every takeover detected by the actuator controller,
+  # including direct signaled effort before steeringPressed's filter trips.
+  driver_takeover = steering_takeover_requested(cs.hands_on_level, ret.steeringTorque, ret.vEgo,
+                                                bool(ret.leftBlinker) != bool(ret.rightBlinker), ret.steeringPressed)
+  cs.engagement.handle_steering_disengage(ret.steeringDisengage or driver_takeover)
 
   # Cruise state
   cruise_state = cs.can_defines["DI_state"]["DI_cruiseState"].get(int(cp_chassis.vl["DI_state"]["DI_cruiseState"]), None)

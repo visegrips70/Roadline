@@ -144,7 +144,7 @@ def test_brake_pause_never_enables_pedal_output():
   sends=c.update(N(enabled=True,longActive=False,actuators=N(accel=1),orientationNED=[]),cs_,0,can,0)
   assert sends[-1]['enable']==0 and not c.vdas.update.called
 
-def test_steering_handback_does_not_wait_for_wheel_to_straighten():
+def test_steering_takeover_requires_fresh_engagement_without_recentering_wheel():
  from opendbc.car.tesla import carcontroller as ccmod
  c=ccmod.CarController.__new__(ccmod.CarController)
  c.CP=N(openpilotLongitudinalControl=False);c.frame=0;c.apply_angle_last=25.;c.VM=MagicMock()
@@ -153,17 +153,21 @@ def test_steering_handback_does_not_wait_for_wheel_to_straighten():
  c.navigation_signal=N(update=lambda *a,**kw:[]);c.tap_params=None
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True
  out=N(vEgo=4.,vEgoRaw=4.,leftBlinker=True,rightBlinker=False,steeringPressed=True,steeringAngleDeg=25.,steeringTorque=0.,canValid=True)
- cs_=N(out=out,hands_on_level=2,tap_stalk=N())
+ cs_=N(out=out,hands_on_level=2,tap_stalk=N(),cruiseEnabled=True)
  actuator=MagicMock();actuator.steeringAngleDeg=30.
- control=N(actuators=actuator,latActive=True)
+ control=N(actuators=actuator,enabled=True,latActive=True)
  with patch.object(ccmod,'apply_steer_angle_limits_vm',side_effect=lambda target,previous,*a:target) as apply:
   c._update_preap(control,cs_)
   assert not apply.call_args.args[4]
   out.steeringPressed=False;cs_.hands_on_level=0
-  for _ in range(22):c._update_preap(control,cs_)
+  for _ in range(100):c._update_preap(control,cs_)
+  assert not apply.call_args.args[4]
+  control.enabled=control.latActive=cs_.cruiseEnabled=False
+  for _ in range(2):c._update_preap(control,cs_)
+  control.enabled=control.latActive=cs_.cruiseEnabled=True
+  for _ in range(2):c._update_preap(control,cs_)
   assert apply.call_args.args[4]
   assert out.steeringAngleDeg==25 and actuator.steeringAngleDeg==30
-  assert any(call.args[4] and call.args[1]==25 for call in apply.call_args_list)  # First active handback starts from measured angle.
   out.steeringPressed=True;cs_.hands_on_level=2
   c._update_preap(control,cs_);c._update_preap(control,cs_)
   assert not apply.call_args.args[4]

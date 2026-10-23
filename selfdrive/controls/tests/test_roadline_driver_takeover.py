@@ -156,3 +156,138 @@ def test_disabled_system_never_sends_enabled_pedal_hold(long_active):
     sends = controller.update(control, pedal_cs(), 0, can, 0)
   assert sends[-1]['enable'] == 0
   controller.vdas.update.assert_not_called()
+
+
+def test_signaled_takeover_cancels_before_the_filtered_pressed_flag(interface):
+  ci = interface
+  chassis = ci.can_parsers[Bus.chassis]
+  chassis.vl['GTW_carState']['BC_indicatorLStatus'] = 1
+  chassis.vl['EPAS_sysStatus']['EPAS_eacStatus'] = 1
+  chassis.vl['EPAS_sysStatus']['EPAS_handsOnLevel'] = 1
+  chassis.vl['EPAS_sysStatus']['EPAS_torsionBarTorque'] = 3.5
+  ci.CS.engagement.cruiseEnabled = ci.CS.engagement.enableLongControl = True
+  with patch.object(ci.CS, 'update_speed_kf', return_value=(18 * .44704, 0.)):
+    state = update_preap(ci.CS, ci.can_parsers)
+  assert not state.steeringPressed  # Existing 50-frame display filter at this speed.
+  assert not state.cruiseState.enabled
+  assert not ci.CS.enableLongControl
+
+
+@pytest.fixture
+def wire_controller(interface):
+  from types import SimpleNamespace as N
+  from unittest.mock import MagicMock
+  from opendbc.car.tesla.preap import carcontroller as module
+  ci = interface
+  ci.CC.CP.openpilotLongitudinalControl = True
+  ci.CC.preap_long.vdas = MagicMock()
+  ci.CC.preap_long.vdas.update.return_value = 6.
+  ci.CS.cruiseEnabled = ci.CS.enableLongControl = True
+  ci.CS.pedal_timeout = False
+  ci.CS.pedal_interceptor_value = 6.
+  ci.CS.out.vEgo = ci.CS.out.vEgoRaw = 5.
+  ci.CS.out.canValid = True
+  ci.CS.out.leftBlinker = True
+  ci.CS.out.steeringAngleDeg = 25.
+  ci.CS.hands_on_level = 0
+  ci.CC.params = N(get_bool=lambda _: False)
+  ci.CC.tap_params = None
+  with patch.object(module, 'nap_conf', N(use_pedal=True, pedal_factor=1., di_to_pedal=lambda x: x)), \
+       patch.object(module, 'get_zero_torque') as zero:
+    zero.return_value.get.return_value = 4.
+    yield ci
+
+
+def wire_tick(ci, enabled=True, lat=True, long=True):
+  from opendbc.car import structs
+  from opendbc.can import CANParser
+  from opendbc.car.tesla.values import CANBUS
+  control = structs.CarControl()
+  control.enabled, control.latActive, control.longActive = enabled, lat, long
+  control.actuators.steeringAngleDeg = 30.
+  control.actuators.accel = .4
+  # These routing checks assume fresh pedal feedback. Empty input CAN in
+  # update_preap otherwise sets timeout, which throttles idle heartbeats to 1 Hz.
+  # Pedal feedback parsing/timeouts are covered by the existing pedal tests.
+  ci.CS.pedal_timeout = False
+  # Both parity slots are exercised; command messages are emitted every other tick.
+  frames = []
+  for _ in range(2):
+    _, sends = ci.CC._update_preap(control.as_reader(), ci.CS)
+    frames.extend(sends)
+  parser = CANParser('tesla_preap', [('DAS_steeringControl', 0), ('EPB_epasControl', 0)], CANBUS.party)
+  parser.update([(1000000000 + ci.CC.frame * 10000000, frames)])
+  pedal = [data for addr, data, _ in frames if addr == 0x551]
+  assert pedal
+  assert parser.vl['EPB_epasControl']['EPB_epasEACAllow'] == 1  # Preserve normal power steering.
+  return bool(parser.vl['DAS_steeringControl']['DAS_steeringControlType']), bool(pedal[-1][4] & 0x80)
+
+
+@pytest.mark.parametrize('mph,signal,trigger', [
+  (8., True, 'pressed'), (18., True, 'torque'), (40., False, 'level'),
+  (60., False, 'pressed'), (0., False, 'level'), (8., True, 'epas'),
+])
+def test_packed_commands_stay_disabled_after_steering_release(wire_controller, mph, signal, trigger):
+  ci = wire_controller
+  ci.CS.out.vEgo = ci.CS.out.vEgoRaw = mph * .44704
+  ci.CS.out.leftBlinker = signal
+  assert wire_tick(ci) == (True, True)
+  ci.CS.out.steeringPressed = trigger == 'pressed'
+  ci.CS.out.steeringTorque = 3.5 if trigger == 'torque' else 0.
+  ci.CS.hands_on_level = 3 if trigger == 'level' else 0
+  ci.CS.out.steeringDisengage = trigger == 'epas'
+  assert wire_tick(ci) == (False, False)
+  ci.CS.out.steeringPressed = False
+  ci.CS.out.steeringTorque = 0.
+  ci.CS.hands_on_level = 0
+  ci.CS.out.steeringDisengage = False
+  # Deliberately stale enabled/cruise flags must not cause timed reacquisition.
+  for _ in range(60):
+    assert wire_tick(ci) == (False, False)
+  ci.CS.cruiseEnabled = ci.CS.enableLongControl = False
+  assert wire_tick(ci, enabled=False, lat=False, long=False) == (False, False)
+  assert wire_tick(ci, enabled=False, lat=False, long=False) == (False, False)
+  # The FSM tests separately require a fresh stalk gesture to raise these flags.
+  ci.CS.cruiseEnabled = ci.CS.enableLongControl = True
+  assert wire_tick(ci) == (True, True)
+
+
+@pytest.mark.parametrize('enabled,cruise', [(False, True), (True, False), (False, False)])
+def test_packed_commands_require_application_and_cruise_enable(wire_controller, enabled, cruise):
+  ci = wire_controller
+  ci.CS.cruiseEnabled = cruise
+  assert wire_tick(ci, enabled=enabled) == (False, False)
+
+
+def test_brake_preserves_steering_but_disables_pedal_commands(wire_controller):
+  from unittest.mock import PropertyMock
+  from opendbc.car.tesla.preap.nap_conf import NAPConf
+  ci = wire_controller
+  ci.CS.engagement.cruiseEnabled = ci.CS.engagement.enableLongControl = True
+  ci.CS.engagement.pedal_speed_kph = 40.
+  chassis = ci.can_parsers[Bus.chassis]
+  chassis.vl['EPAS_sysStatus']['EPAS_eacStatus'] = 1
+  chassis.vl['BrakeMessage']['driverBrakeStatus'] = 2
+  with patch.object(NAPConf, 'use_pedal', new_callable=PropertyMock, return_value=True), \
+       patch.object(ci.CS, 'update_speed_kf', return_value=(5., 0.)):
+    ci.CS.out = update_preap(ci.CS, ci.can_parsers)
+  assert ci.CS.out.brake == 1.
+  assert ci.CS.out.cruiseState.enabled
+  assert not ci.CS.enableLongControl
+  # Even a stale longActive request cannot keep the pedal enabled after braking.
+  assert wire_tick(ci, long=True) == (True, False)
+  # Steering takeover while braking still cancels both axes.
+  chassis.vl['EPAS_sysStatus']['EPAS_torsionBarTorque'] = 6.
+  with patch.object(NAPConf, 'use_pedal', new_callable=PropertyMock, return_value=True), \
+       patch.object(ci.CS, 'update_speed_kf', return_value=(5., 0.)):
+    ci.CS.out = update_preap(ci.CS, ci.can_parsers)
+    assert not ci.CS.out.cruiseState.enabled
+    assert wire_tick(ci) == (False, False)
+    chassis.vl['EPAS_sysStatus']['EPAS_torsionBarTorque'] = 0.
+    chassis.vl['BrakeMessage']['driverBrakeStatus'] = 1
+    for _ in range(5):
+      ci.CS.out = update_preap(ci.CS, ci.can_parsers)
+    assert wire_tick(ci) == (False, False)
+  assert not ci.CS.engagement.process_brake_resume(5000, 0., False, True, True, True, True, True)
+  assert not ci.CS.engagement.cruiseEnabled
+  assert not ci.CS.engagement.enableLongControl

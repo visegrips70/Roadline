@@ -41,8 +41,9 @@ and exact hardware/software disengagement ordering.
    level 3 / EPAS rejection conditions. Report actual EPAS rejection as a temporary
    steering fault rather than overwriting it with false.
 2. Cancel the software cruise FSM on detected driver steering as well as raw
-   disengagement; ignore engagement gestures while the override is held. Releasing
-   the wheel does not silently restore cruise. A fresh stalk gesture is required.
+   disengagement; ignore engagement gestures while the override is held. The FSM
+   and controller share the existing takeover effort thresholds, including the
+   direct signaled-turn path before the filtered pressed flag becomes true.
 3. Capture current measured speed, rounded to the display unit, on engagement.
    Remove the unvalidated `/dev/shm/mpp_speed_limit` target substitution and its
    automatic updates. Manual stalk speed changes remain available.
@@ -52,6 +53,19 @@ and exact hardware/software disengagement ordering.
 5. Require the application's enabled flag before allowing pedal actuation or an
    enabled zero-torque hold. A stale software cruise latch must not issue enabled
    pedal hold commands after the application disables.
+6. Remove the controller's timed steering reacquisition after quiet driver effort.
+   Latch detected takeover at the actuator controller and disable both steering
+   requests and pedal output. Require observed full application/cruise
+   disengagement before accepting a fresh engagement. Apply the same blocked
+   lateral state to synthetic turn-signal controllers. Normal EPAS power remains
+   enabled so manual power steering is retained.
+7. Preserve the requested brake behavior in pedal mode: brake input pauses speed
+   control while lateral assistance remains engaged. Steering takeover while
+   braking still cancels both axes and clears the brake/throttle resume state.
+
+The effort thresholds and highway steering-pressed filter are inherited, not
+newly validated takeover latency limits. Actual driver effort and cancellation
+timing still require bench and controlled vehicle validation.
 
 These changes leave Panda limits and mismatch alerts intact. They do not fix or
 validate the wrong-direction path, guarantee all re-engagement scenarios, enable
@@ -62,10 +76,22 @@ live lane trim, establish Tesla MCU2 route access, or configure automatic update
 - New regression checks first reproduced 13 failures against the prior source.
 - Focused real car-state / engagement / controller tests: 69 passed, with four
   unittest subtests also passing. Counts overlap with the broader suite.
-- Broader controls, Pre-AP and Tesla Pre-AP Panda tests: 754 passed, nine skipped,
+- Initial broader controls, Pre-AP and Tesla Pre-AP Panda tests: 754 passed, nine skipped,
   with 200 unittest subtests also passing. The initial run found two old controller
   test doubles missing `enabled`; both now explicitly describe enabled operation,
   and the complete suite was rerun successfully without changing their assertions.
+- The follow-up controller change replaces obsolete tests that expected automatic
+  steering handback with full cancellation/fresh engagement expectations. Added
+  checks decode actual packed steering and pedal messages, including stale enable
+  flags, low/high-speed takeover, EPAS rejection, brake-only input, and steering
+  takeover while braking.
+- Follow-up full suite: 764 passed, nine skipped, 200 subtests passed, and one
+  new test-fixture failure. Empty input CAN made the simulated pedal time out,
+  so the test incorrectly expected a disabled heartbeat on every 20-ms slot
+  instead of the inherited 1-Hz timeout cadence. The command-routing fixture now
+  explicitly supplies fresh pedal feedback. No production code changed for this
+  correction. Rerunning all 30 first-drive takeover/brake tests passed, including
+  that failure; the broader suite was not repeated after this fixture-only fix.
 - `git diff --check` passed. These are local software tests, not evidence that the
   vehicle takeover behavior or wrong-direction maneuver is corrected.
 - Clean CI, new device build, actual takeover timing and closed-course acceptance:
