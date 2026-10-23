@@ -11,6 +11,8 @@ on:
       - 'tools/roadline/package_native_release.py'
       - 'tools/roadline/test_package_native_release.py'
       - 'tools/roadline/build_installer_on_device.sh'
+      - 'tools/roadline/bench_boot.py'
+      - 'tools/roadline/test_bench_boot.py'
       - 'selfdrive/ui/installer/**'
       - 'selfdrive/ui/SConscript'
       - 'release/roadline/**'
@@ -38,6 +40,7 @@ jobs:
           python3 -m unittest discover -s tools/roadline -p test_download_release.py -v 2>&1 | tee build/roadline-download-prep/release-tests.txt
           python3 -m unittest discover -s tools/roadline -p test_verify_install_url.py -v 2>&1 | tee build/roadline-download-prep/url-tests.txt
           python3 -m unittest discover -s tools/roadline -p test_package_native_release.py -v
+          python3 -m unittest discover -s tools/roadline -p test_bench_boot.py -v
           bash -n tools/roadline/build_installer_on_device.sh
           python3 -m py_compile tools/roadline/download_release.py tools/roadline/verify_install_url.py
           python3 - <<'PY'
