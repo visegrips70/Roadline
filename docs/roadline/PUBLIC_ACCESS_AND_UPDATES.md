@@ -1,5 +1,7 @@
 # Public source and updates from the comma
 
+Status (2026-10-23): GitHub confirms the repository is public. Device updates remain unconfigured and the repair candidate remains a draft.
+
 The owner requested public source access and future updates without connecting a
 Mac. Roadline is built on NAP / NotAutopilot and comma.ai openpilot; retain the
 prominent [upstream credits](../../CREDITS.md) in the public project and releases.

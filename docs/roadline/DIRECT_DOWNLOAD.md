@@ -28,7 +28,7 @@ does not itself create an installer or validate a release. See
 [public access and device updates](PUBLIC_ACCESS_AND_UPDATES.md).
 The simple `installer.comma.ai/<owner>/<branch>` convention
 must not be treated as a working Roadline link: the existing repository is not
-named openpilot and is not anonymously cloneable. Do not embed a personal access
+named openpilot. Public source access alone does not supply a tested installer. Do not embed a personal access
 token, SSH private key, navigation pairing key, or device settings in an installer.
 The reviewed installer generator documents its repository-name assumptions:
 https://github.com/sshane/openpilot-installer-generator#aliases
