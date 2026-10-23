@@ -93,8 +93,13 @@ def validate():
     path = params / key
     if path.exists() and path.read_bytes().strip() not in (b'', b'0'):
       raise ValueError('Pending device action: ' + key)
-  if stat.S_IMODE(target.stat().st_mode) != 0o755 or sha(target.read_bytes()) not in (OLD_SHA, NEW_SHA):
-    raise ValueError('Car daemon contents or mode differ from the reviewed files.')
+  # Native Git checkouts can retain group write permission (umask 0002).
+  # The operator verified 0775 in both the installed and pristine c79 package.
+  mode = stat.S_IMODE(target.stat().st_mode)
+  if mode not in (0o755, 0o775):
+    raise ValueError(f'Unexpected car daemon permissions: {mode:04o}; expected 0755 or 0775.')
+  if sha(target.read_bytes()) not in (OLD_SHA, NEW_SHA):
+    raise ValueError('Car daemon contents differ from the reviewed files.')
   if backup.is_symlink() or (backup.exists() and sha(backup.read_bytes()) != OLD_SHA):
     raise ValueError('Existing file backup differs; it will not be overwritten.')
   if receipt.is_symlink():
@@ -114,6 +119,7 @@ def update(action):
   current = target.read_bytes()
   before_receipt = receipt.read_bytes() if receipt.exists() else None
   info = target.stat()
+  mode = stat.S_IMODE(info.st_mode)
   owner = (info.st_uid, info.st_gid)
   if sha(current) == NEW_SHA and not backup.is_file():
     raise ValueError('Patched file has no verified backup; inspect before continuing.')
@@ -135,10 +141,10 @@ def update(action):
   run('systemctl', 'stop', 'comma.service')
   try:
     validate()
-    if target.read_bytes() != current:
+    if target.read_bytes() != current or stat.S_IMODE(target.stat().st_mode) != mode:
       raise ValueError('Car daemon changed during service stop.')
-    atomic(target, desired, mode=0o755, owner=owner)
-    if target.read_bytes() != desired:
+    atomic(target, desired, mode=mode, owner=owner)
+    if target.read_bytes() != desired or stat.S_IMODE(target.stat().st_mode) != mode:
       raise ValueError('Car daemon readback failed.')
     if wanted_receipt is None:
       receipt.unlink(missing_ok=True)
@@ -148,9 +154,9 @@ def update(action):
   except Exception:
     # Restore only our known file contents; never overwrite an external change.
     try:
-      if sha(target.read_bytes()) not in (OLD_SHA, NEW_SHA):
+      if sha(target.read_bytes()) not in (OLD_SHA, NEW_SHA) or stat.S_IMODE(target.stat().st_mode) != mode:
         raise ValueError('Car daemon changed externally.')
-      atomic(target, current, mode=0o755, owner=owner)
+      atomic(target, current, mode=mode, owner=owner)
       if before_receipt is None:
         receipt.unlink(missing_ok=True)
       else:
@@ -163,6 +169,7 @@ def update(action):
     raise
   print('PASSIVE STARTUP FIX ' + ('APPLIED' if action == 'apply' else 'REMOVED'))
   print('Car daemon SHA256: ' + sha(target.read_bytes()))
+  print(f'Car daemon permissions preserved: {mode:04o}')
   print('Backup: ' + str(backup))
   print('Service restart requested; live noOutput verification remains required.')
   print('Base release remains c79c68f; firmware files and calibration settings were not edited.')

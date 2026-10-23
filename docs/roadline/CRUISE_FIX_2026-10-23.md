@@ -179,7 +179,7 @@ and the existing assistance/pedal/radar/navigation settings remain disabled.
 It validates hardware/OS, base release, current firmware-file hash, candidate
 path and recovery state. Both old and new source-file hashes are pinned. It
 backs up the original file to the first-start recovery directory, stops the
-service, rechecks the guards, atomically replaces the file preserving ownership,
+service, rechecks the guards, atomically replaces the file preserving ownership and permissions,
 and requests a service restart. It writes no parameters and never sets
 `ControlsReady` itself. The corrected car process performs the normal handshake.
 
@@ -191,7 +191,7 @@ The same helper's `rollback` action restores just this file while offroad; the
 existing `control.py rollback --vehicle-disconnected` still returns the entire
 candidate to the previous installation. Normal full rollback precautions apply.
 
-Twenty-seven transaction tests use temporary files and simulated service calls,
+Thirty-five transaction tests use temporary files and simulated service calls,
 covering apply/rollback, repeat apply, wrong/missing settings, unknown content,
 failed restart, interrupted file replacement, missing backup, vehicle wake during
 stop, external edits and wrong active paths. They pass together with the seven
@@ -199,3 +199,16 @@ startup regressions. Checksums also reproduce the exact published file from the
 actual c79c68f baseline. No test here sends CAN or establishes hardware health.
 After applying, an awake, parked, assistance-disabled observation must confirm
 fresh Panda `noOutput` with controls disallowed and `ControlsReady=1`.
+
+The first device update attempts stopped in initial validation before backup or
+service stop. Navigation maneuvers first needed to be disabled; after that, the
+operator verified that both installed and pristine-package `card.py` had the
+expected original SHA256 but permissions `0775`. The updater had incorrectly
+required exactly `0755`. It now accepts either executable mode and preserves the
+installed mode on apply, rollback and failed-restart recovery. Other permissions,
+including world-write and special bits, remain rejected; exact source hashes and
+all offroad/disabled-state checks remain required. Contents and permission
+failures now have separate messages. Regression tests reproduce the original
+`0775` failure and cover both modes, rejected modes and a permission change during
+service stop. The car-daemon correction itself is unchanged. Successful device
+application and the subsequent live passive-mode check remain pending.

@@ -44,14 +44,16 @@ def device(tmp_path, monkeypatch):
               original=original, changed=changed, params=params, calls=calls, panda=panda)
 
 
-def test_apply_preserves_calibration_firmware_metadata_and_file_mode(device):
+@pytest.mark.parametrize('mode', [0o755, 0o775])
+def test_apply_preserves_calibration_firmware_metadata_and_file_mode(device, mode):
   d = device
+  d['target'].chmod(mode)
   before = {p.name: p.read_bytes() for p in d['params'].iterdir()}
   release_before = (d['root'] / 'roadline_release.json').read_bytes()
   update.update('apply')
   assert d['target'].read_bytes() == d['changed']
   assert d['backup'].read_bytes() == d['original']
-  assert d['target'].stat().st_mode & 0o777 == 0o755
+  assert d['target'].stat().st_mode & 0o7777 == mode
   assert d['backup'].stat().st_mode & 0o777 == 0o600
   assert {p.name: p.read_bytes() for p in d['params'].iterdir()} == before
   assert d['panda'].read_bytes() == b'synthetic-firmware'
@@ -62,12 +64,26 @@ def test_apply_preserves_calibration_firmware_metadata_and_file_mode(device):
   assert len(d['calls']) == 2
 
 
-def test_rollback_restores_original_file_and_removes_only_our_receipt(device):
+@pytest.mark.parametrize('mode', [0o755, 0o775])
+def test_rollback_restores_original_file_and_removes_only_our_receipt(device, mode):
+  device['target'].chmod(mode)
   update.update('apply')
   update.update('rollback')
   assert device['target'].read_bytes() == device['original']
   assert device['backup'].read_bytes() == device['original']
+  assert device['target'].stat().st_mode & 0o7777 == mode
   assert not device['receipt'].exists()
+
+
+@pytest.mark.parametrize('mode', [0o644, 0o777, 0o4755, 0o2755])
+def test_unexpected_permissions_block_before_backup_or_service_stop(device, mode):
+  device['target'].chmod(mode)
+  with pytest.raises(ValueError, match='permissions'):
+    update.update('apply')
+  assert device['target'].read_bytes() == device['original']
+  assert device['target'].stat().st_mode & 0o7777 == mode
+  assert not device['backup'].exists()
+  assert device['calls'] == []
 
 
 @pytest.mark.parametrize('key', ['IsOnroad', *update.DISABLED])
@@ -94,7 +110,9 @@ def test_unknown_files_are_never_overwritten(device, file):
   assert device['calls'] == []
 
 
-def test_failed_service_restart_restores_prior_contents(device, monkeypatch):
+@pytest.mark.parametrize('mode', [0o755, 0o775])
+def test_failed_service_restart_restores_prior_contents(device, monkeypatch, mode):
+  device['target'].chmod(mode)
   def run(*args):
     device['calls'].append(args)
     if args[1] == 'start' and len(device['calls']) == 2:
@@ -103,6 +121,7 @@ def test_failed_service_restart_restores_prior_contents(device, monkeypatch):
   with pytest.raises(subprocess.CalledProcessError):
     update.update('apply')
   assert device['target'].read_bytes() == device['original']
+  assert device['target'].stat().st_mode & 0o7777 == mode
   assert not device['receipt'].exists()
   assert device['calls'][-1] == ('systemctl', 'start', 'comma.service')
 
@@ -143,6 +162,19 @@ def test_external_edit_during_service_stop_is_preserved(device, monkeypatch):
   with pytest.raises(RuntimeError, match='automatic restart was blocked'):
     update.update('apply')
   assert device['target'].read_bytes() == b'external edit'
+  assert device['calls'] == [('systemctl', 'stop', 'comma.service')]
+
+
+def test_external_permission_change_during_stop_is_preserved(device, monkeypatch):
+  def run(*args):
+    device['calls'].append(args)
+    if args[1] == 'stop':
+      device['target'].chmod(0o775)
+  monkeypatch.setattr(update, 'run', run)
+  with pytest.raises(RuntimeError, match='automatic restart was blocked'):
+    update.update('apply')
+  assert device['target'].read_bytes() == device['original']
+  assert device['target'].stat().st_mode & 0o7777 == 0o775
   assert device['calls'] == [('systemctl', 'stop', 'comma.service')]
 
 
