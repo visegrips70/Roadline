@@ -119,3 +119,27 @@ bounded gradual application and visible preference. It is not implemented here.
 Do not enable it before resolving takeover and direction faults. MCU2 navigation
 needs a verified route-data interface. Branding and direct-download/update work
 must preserve upstream licenses and remain separate from a tested release channel.
+
+## Subsequent repair work — October 23, 2026 UTC
+
+GitHub Actions run [39879373978](https://github.com/visegrips70/Roadline/actions/runs/39879373978)
+completed clean development validation successfully for commit
+`12498d1f5b016c0cb071b181f03f5ee17d7a0865`, including the native build and
+validation runner. This does not establish vehicle behavior.
+
+A further draft adds an independent sharp-turn direction veto that does not
+depend on model desire classification or navigation-decision freshness. At up to
+25 mph, an opposite-indicator curvature request of magnitude 0.02 or greater
+raises a dedicated immediate-disable/no-entry event. The actuator controller also
+checks the final request and blocks both steering and pedal commands. The fault
+remains latched after indicator release or a subsequent good prediction; clear
+cruise fully before a fresh engagement. It never substitutes an invented path.
+Small corrections, unsignaled bends, and high-speed road following retain their
+existing behavior; these boundaries still need replay and vehicle validation.
+
+New regressions cover the recorded rightward-request values with absent or
+ambiguous model desires, mirrored right-indicator cases, malformed numeric input,
+supervisor cancellation, stale cruise flags, and decoded steering/pedal CAN.
+These new checks have not yet run. The local execution environment is unavailable;
+the draft PR is being validated by GitHub Actions. No vehicle files were changed.
+The full rlogs are still required to establish the incident's complete cause.

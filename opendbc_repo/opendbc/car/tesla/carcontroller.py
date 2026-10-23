@@ -15,6 +15,7 @@ from opendbc.car.tesla.preap.parked_signal_test import ParkedSignalTest
 from opendbc.car.tesla.preap.tap_lane_change import NavigationSignalController, TapController
 from opendbc.car.tesla.preap.nap_params import NAPParamKeys
 from opendbc.car.tesla.preap.steering_override import steering_takeover_requested
+from opendbc.car.tesla.preap.turn_safety import TurnDirectionGuard
 
 def get_safety_CP():
   from opendbc.car.tesla.interface import CarInterface
@@ -129,7 +130,13 @@ class CarController(CarControllerBase):
     if driver_pulling:
       self.steering_takeover_latched = True
 
-    overriding = self.steering_takeover_latched
+    if not hasattr(self, "turn_direction_guard"):
+      self.turn_direction_guard = TurnDirectionGuard()
+    # Independent final request check before packing steering or pedal CAN.
+    turn_blocked = self.turn_direction_guard.update(
+      CS.out, [actuators.curvature] if CC.latActive else [],
+      enabled=CC.enabled, cruise_enabled=CS.cruiseEnabled)
+    overriding = self.steering_takeover_latched or turn_blocked
     control_allowed = CC.enabled and CS.cruiseEnabled and not overriding
     if overriding:
       low_speed_turn_profile = False

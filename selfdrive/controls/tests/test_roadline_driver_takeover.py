@@ -198,13 +198,14 @@ def wire_controller(interface):
     yield ci
 
 
-def wire_tick(ci, enabled=True, lat=True, long=True):
+def wire_tick(ci, enabled=True, lat=True, long=True, curvature=0.):
   from opendbc.car import structs
   from opendbc.can import CANParser
   from opendbc.car.tesla.values import CANBUS
   control = structs.CarControl()
   control.enabled, control.latActive, control.longActive = enabled, lat, long
   control.actuators.steeringAngleDeg = 30.
+  control.actuators.curvature = curvature
   control.actuators.accel = .4
   # These routing checks assume fresh pedal feedback. Empty input CAN in
   # update_preap otherwise sets timeout, which throttles idle heartbeats to 1 Hz.

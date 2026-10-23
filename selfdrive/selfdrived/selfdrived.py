@@ -19,6 +19,7 @@ from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.selfdrive.selfdrived.events import Events, ET
 from openpilot.selfdrive.selfdrived.helpers import ExcessiveActuationCheck
 from openpilot.selfdrive.selfdrived.state import StateMachine
+from opendbc.car.tesla.preap.turn_safety import TurnDirectionGuard
 from openpilot.selfdrive.selfdrived.alertmanager import AlertManager, set_offroad_alert
 
 from openpilot.system.version import get_build_metadata
@@ -122,6 +123,7 @@ class SelfdriveD:
     self.state_machine = StateMachine()
     self.rk = Ratekeeper(100, print_delay_threshold=None)
     self.prev_pedal_long_active = False
+    self.turn_direction_guard = TurnDirectionGuard()
 
     # Determine startup event
     self.startup_event = EventName.startup if build_metadata.openpilot.comma_remote and build_metadata.tested_channel else EventName.startupMaster
@@ -139,6 +141,21 @@ class SelfdriveD:
       set_offroad_alert("Offroad_CarUnrecognized", True)
     elif self.CP.passive:
       self.events.add(EventName.dashcamMode, static=True)
+
+  def _update_turn_conflict(self, CS):
+    if self.CP.carFingerprint != "TESLA_MODEL_S_PREAP":
+      return
+    if not hasattr(self, 'turn_direction_guard'):
+      self.turn_direction_guard = TurnDirectionGuard()
+    # Inspect the raw model as well as the last active actuator request.
+    # A stale navigation decision must not bypass the raw-direction veto.
+    curvatures = [self.sm['modelV2'].action.desiredCurvature]
+    command = self.sm['carControl']
+    if command.latActive:
+      curvatures.append(command.actuators.curvature)
+    if self.turn_direction_guard.update(
+        CS, curvatures, enabled=self.enabled, cruise_enabled=CS.cruiseState.enabled):
+      self.events.add(EventName.roadlineTurnConflict)
 
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
@@ -173,6 +190,8 @@ class SelfdriveD:
     # Don't add any more events while in dashcam mode
     if self.CP.passive:
       return
+
+    self._update_turn_conflict(CS)
 
     # Block resume if cruise never previously enabled
     resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)

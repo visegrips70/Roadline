@@ -1,8 +1,8 @@
 """Low-speed turn permission; ordinary road following remains available."""
 import math
-
-TURN_SPEED_MAX = 25 * 0.44704
-TIGHT_TURN_CURVATURE = 0.02  # direction consistency for an explicit model turn
+from opendbc.car.tesla.preap.turn_safety import (
+  TURN_SPEED_MAX, TIGHT_TURN_CURVATURE, turn_direction_conflict,
+)
 
 
 def matching_signal(cs, direction):
@@ -18,12 +18,13 @@ class TurnSteeringGate:
     one = bool(cs.leftBlinker) != bool(cs.rightBlinker)
     if not cs.leftBlinker and not cs.rightBlinker:
       self.driver_cancelled = False
-    if cs.vEgo >= TURN_SPEED_MAX:
-      return True
-    # HSO owns temporary yielding and quiet handback. Do not turn a brief
-    # torque event into a separate persistent model-path cancellation.
     try:
       curvature = float(model.action.desiredCurvature if requested_curvature is None else requested_curvature)
+      # Do not depend on a successful model turn classification for this veto.
+      if turn_direction_conflict(cs, curvature):
+        return False
+      if cs.vEgo > TURN_SPEED_MAX:
+        return True
       if not math.isfinite(curvature):
         return False
       probabilities = list(model.meta.desireState)
