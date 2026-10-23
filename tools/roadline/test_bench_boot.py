@@ -270,6 +270,16 @@ class BenchTests(unittest.TestCase):
     with self.assertRaisesRegex(ValueError, 'pre-switch failure'): bench.retry_record()
     self.assertTrue(bench.STATE.is_dir())
 
+  def test_completed_retry_is_rejected_before_rehashing_a_used_runtime(self):
+    self.make_failed_preflight()
+    state = json.loads((bench.STATE / 'state.json').read_text()); state['start_time'] = 123
+    bench.save_state(state)
+    with patch.object(bench, 'tree_hash') as digest, patch.object(bench, 'run') as run:
+      with self.assertRaisesRegex(ValueError, 'Candidate start already recorded'):
+        bench.start(retry_unstarted=True)
+    digest.assert_not_called(); run.assert_not_called()
+    self.assertTrue(bench.STATE.is_dir())
+
   def test_retry_refuses_changed_payload_before_archiving_failure_record(self):
     self.make_failed_preflight()
     with patch.object(bench, 'run') as run:

@@ -20,10 +20,11 @@
   "validation": {
     "native_build": "user-reported successful build; uploaded ARM64 installer and runtime inspected",
     "desktop_ci": "https://github.com/visegrips70/Roadline/actions/runs/40000142652",
-    "native_runtime_execution": "pending",
+    "native_runtime_execution": "Operator reported Roadline branding throughout the interface during the temporary bench test; process-health log review remains pending.",
     "clean_setup_install": "pending",
-    "settings_restore": "pending",
-    "rollback": "pending"
+    "settings_restore": "Device status confirms settings snapshot present and returned state; comparison with the saved settings is pending.",
+    "rollback": "Device status confirms previous active path, active service, assistance disabled and updates disabled after the reported reboot; reboot-versus-timer recovery mechanism remains to be inspected.",
+    "splash_playback": "Not observed. Source analysis found the video is attached to the build/registration spinner, which registered prebuilt startup can skip."
   },
   "publication_enabled": false,
   "road_ready": false,
@@ -31,5 +32,28 @@
     "Private-key and credential-pattern hits were synthetic test fixtures. No actual private-key material was found by these checks; this is not an exhaustive security audit.",
     "No installation or device activation was performed during archive review.",
     "No startup test or rollback success may be inferred from compilation or file verification."
-  ]
+  ],
+  "bench_observation": {
+    "helper_revision": "ad28765df30239271ab37398d23cf706b843a37c",
+    "source": "Operator messages and pasted control.py status output; no direct device access.",
+    "reported_date": "2026-10-23",
+    "roadline_interface_observed": true,
+    "reboot_to_previous_interface_reported": true,
+    "status": {
+      "phase": "returned",
+      "active_path": "/data/roadline-candidate-5de8b00",
+      "service": "active",
+      "IsOnroad": 0,
+      "OpenpilotEnabledToggle": 0,
+      "DisableUpdates": 1,
+      "settings_snapshot": true,
+      "nap_backup": true,
+      "candidate_start_requested": true
+    },
+    "repeated_start_error": "Runtime contents or modes differ from the verified package.",
+    "repeated_start_interpretation": "A later retry was attempted after candidate execution. Startup can add cache and pairing files; exact differences have not yet been inspected.",
+    "settings_contents_verified": false,
+    "recovery_mechanism_verified": false,
+    "driving_validation": false
+  }
 }

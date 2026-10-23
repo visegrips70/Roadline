@@ -164,6 +164,9 @@ def restore_launcher(state):
 
 def retry_record():
   record = json.loads((STATE / 'state.json').read_text())
+  if 'start_time' in record:
+    raise ValueError('Candidate start already recorded. This retry is only for the pre-switch failure; '
+                     'use status and inspect_bench.py, not another start command.')
   if (record.get('phase') != 'returned' or 'start_time' in record or
       (STATE / 'params-before').exists() or (STATE / 'params-copying').exists() or
       'launcher' in record or record.get('payload_sha256') != PAYLOAD or
@@ -190,6 +193,9 @@ def start(retry_unstarted=False):
   if STATE.exists() and not retry_unstarted:
     raise ValueError('A bench test record already exists; run status or rollback.')
   if retry_unstarted and not STATE.is_dir(): raise ValueError('No failed test record to retry.')
+  # A used tree can contain caches and a local navigation key. Refuse a completed
+  # test before hashing so a repeat command is not mistaken for a failed first boot.
+  archive = retry_record() if retry_unstarted else None
   if VERSION_PATH.read_text().strip() != '17.2': raise ValueError('AGNOS 17.2 required.')
   if MODEL_PATH.read_bytes().rstrip(b'\x00') != b'comma tizi':
     raise ValueError('This helper is only for comma 3X.')
@@ -207,7 +213,6 @@ def start(retry_unstarted=False):
     p = PARAMS / name
     if p.exists() and p.read_text().strip() not in ('', '0'): raise ValueError('Pending device action: ' + name)
   if retry_unstarted:
-    archive = retry_record()
     validate_existing_git()
     STATE.rename(archive)
     print('Previous pre-switch failure preserved at', archive)

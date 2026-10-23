@@ -91,6 +91,31 @@ rebuild, reset or manual deletion is required.
 The `CANDIDATE START REQUESTED` status field distinguishes a pre-switch failure
 from an attempted candidate launch. It is not proof of successful UI startup.
 
+## After a completed test
+
+If status says `returned`, `CANDIDATE START REQUESTED: True`, and
+`SETTINGS SNAPSHOT: True`, do not repeat either start command. The retry flag is
+only for the first setup failure, before any candidate start. Startup can add
+Python bytecode and a local navigation pairing credential to the runtime tree,
+so its full distribution checksum can change after use. A checksum mismatch on
+a repeated command does not identify which files changed and does not undo a
+previous startup/return result.
+
+Fetch the pinned `tools/roadline/inspect_bench.py` separately and run it with
+`sudo -n /usr/bin/python3`. This read-only inspector verifies the original package
+report, compares all original file contents, owner execute bits and symlink
+targets, and reports added files by category. It also compares restored settings
+and the startup launcher with the saved copies and reports whether recovery was
+recorded on reboot. It prints no setting values or added-file contents and never
+starts the stack, changes parameters, switches paths or deletes files.
+
+Use the untouched reviewed archive for distribution, not the exercised runtime
+directory or its private local files. Inspection does not approve publication or
+driving. The missing splash remains separate: this build only invokes the branded
+spinner during compilation or registration, which a registered prebuilt install
+can skip. The reported Roadline home screen and return are useful evidence even
+when that animation was not shown.
+
 Upstream startup entry point:
 [AGNOS comma.sh](https://github.com/commaai/agnos-builder/blob/master/userspace/root/usr/comma/comma.sh).
 
