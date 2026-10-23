@@ -11,6 +11,10 @@ from download_release import PRIVATE_NAMES, inspect_tree
 
 OMIT_DIRS = {'.git', '.github', '.venv', 'venv', '__pycache__', '.pytest_cache', '.mypy_cache', '.cache', 'build'}
 OMIT_FILES = {'.git', '.gitmodules', '.gitattributes', '.lfsconfig', '.sconsign.dblite'}
+# Panda's public development signing key is needed to build firmware, not to
+# run the already-signed firmware. Keep it in the source; omit only this path
+# from the distribution. Other private keys still fail the normal checks.
+BUILD_ONLY_FILES = {'panda/board/certs/debug'}
 
 
 def copy_runtime(source, destination):
@@ -24,6 +28,8 @@ def copy_runtime(source, destination):
     for name in sorted(entries):
       src = Path(parent) / name
       dst = target / name
+      if (rel / name).as_posix() in BUILD_ONLY_FILES:
+        continue
       if name in OMIT_FILES or name.endswith(('.o', '.os', '.a', '.pyc', '.log', '.bak')):
         continue
       if name in PRIVATE_NAMES or name == '.env' or (name.startswith('.env.') and not name.endswith(('example', 'sample'))):
@@ -72,7 +78,8 @@ def package(source, output, revision):
   (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
   blockers = [b for b in report['blockers'] if b != 'No exact-payload validation evidence supplied; publication is blocked.']
   if blockers:
-    raise ValueError('Runtime incomplete. See report.json; do not publish this directory.')
+    details = '\n'.join(f'  - {b}' for b in blockers)
+    raise ValueError(f'Runtime incomplete. Do not publish. Report: {output / "report.json"}\n{details}')
   print(f'Runtime prepared at {payload}; bench validation and publication remain outstanding.')
 
 

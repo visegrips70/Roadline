@@ -22,7 +22,10 @@ and embedded repository/branch, and prepares a separate runtime directory:
 
 Packaging does not overwrite an existing output. It rejects known private-file
 names and external symlinks, flattens submodules, excludes Git metadata and build
-logs, and runs the existing release gate. This is not an exhaustive secret audit.
+logs, and runs the existing release gate. The exact build-only path
+`panda/board/certs/debug` is omitted from the runtime; Panda's signed firmware,
+recovery bootstub and public verification keys remain. The key stays in the source
+checkout for future builds. Other private keys are still rejected. This is not an exhaustive secret audit.
 A failed package is retained for inspection; do not publish it. Missing validation
 evidence is expected and keeps publication blocked, even after a successful build.
 
@@ -48,3 +51,13 @@ constitute cryptographic payload verification or driving validation.
 The installer target must never be built with INTERNAL enabled. It installs no
 SSH keys or pairing secrets. The build scripts never invoke the installer,
 manager, pandad, firmware flashers, system reset, or a Git push.
+
+## Retrying packaging after a successful build
+
+If only packaging failed, keep the successful build record and installer. Obtain
+the corrected `package_native_release.py` and its `download_release.py` dependency
+from a reviewed commit into a separate tools directory. Run the corrected
+packager against the unchanged checkout and original native-build revision, with
+a new output path. Do not change the build marker or relabel the old build as a
+new source commit. Keep the previous partial output until the new report is
+reviewed. The packager writes no device settings and does not activate software.
