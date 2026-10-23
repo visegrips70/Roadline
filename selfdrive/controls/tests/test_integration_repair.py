@@ -123,7 +123,7 @@ def test_pedal_press_passthrough_then_release_picks_up_current_state():
  cc=PreAPLongController();cc.vdas=MagicMock();cc.vdas.update.return_value=6.
  can=MagicMock();can.create_pedal_command.side_effect=lambda cmd,enable:dict(cmd=cmd,enable=enable)
  conf=N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)
- cs_=pedal_cs(True);control=N(longActive=False,actuators=N(accel=.4),orientationNED=[])
+ cs_=pedal_cs(True);control=N(enabled=True,longActive=False,actuators=N(accel=.4),orientationNED=[])
  with patch.object(ccmod,'nap_conf',conf),patch.object(ccmod,'get_zero_torque') as z:
   z.return_value.get.return_value=4
   sends=cc.update(control,cs_,0,can,0)
@@ -141,7 +141,7 @@ def test_brake_pause_never_enables_pedal_output():
  c=PreAPLongController();c.vdas=MagicMock();can=MagicMock();can.create_pedal_command.side_effect=lambda cmd,enable:dict(cmd=cmd,enable=enable)
  cs_=pedal_cs();cs_.enableLongControl=False
  with patch.object(ccmod,'nap_conf',N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)),patch.object(ccmod,'get_zero_torque'):
-  sends=c.update(N(longActive=False,actuators=N(accel=1),orientationNED=[]),cs_,0,can,0)
+  sends=c.update(N(enabled=True,longActive=False,actuators=N(accel=1),orientationNED=[]),cs_,0,can,0)
   assert sends[-1]['enable']==0 and not c.vdas.update.called
 
 def test_steering_handback_does_not_wait_for_wheel_to_straighten():
@@ -171,7 +171,7 @@ def test_steering_handback_does_not_wait_for_wheel_to_straighten():
 def test_odd_frame_release_still_rebases_before_first_applied_command():
  from opendbc.car.tesla.preap import carcontroller as ccmod
  c=PreAPLongController();c.vdas=MagicMock();c.vdas.update.return_value=6.
- can=MagicMock();cs_=pedal_cs(True);control=N(longActive=False,actuators=N(accel=.5),orientationNED=[])
+ can=MagicMock();cs_=pedal_cs(True);control=N(enabled=True,longActive=False,actuators=N(accel=.5),orientationNED=[])
  with patch.object(ccmod,'nap_conf',N(use_pedal=True,pedal_factor=1,di_to_pedal=lambda d:d)),patch.object(ccmod,'get_zero_torque') as z:
   z.return_value.get.return_value=4.
   c.update(control,cs_,0,can,0)

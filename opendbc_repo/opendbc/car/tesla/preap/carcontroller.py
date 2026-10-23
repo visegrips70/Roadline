@@ -39,7 +39,7 @@ class PreAPLongController:
     actuators = CC.actuators
 
     requested_long = CS.cruiseEnabled and CS.enableLongControl
-    long_active = requested_long and CC.longActive
+    long_active = requested_long and CC.enabled and CC.longActive
     use_pedal = nap_conf.use_pedal
     pedal_factor = float(nap_conf.pedal_factor)
     pedal_transform_valid = np.isfinite(pedal_factor) and abs(pedal_factor) > 1e-6
@@ -49,7 +49,9 @@ class PreAPLongController:
     # of long_active. long_active is False during gas press (gasOverride
     # sets OVERRIDE_LONGITUDINAL), but we still need to track state and
     # send pedal commands for smooth transitions.
-    pedal_engaged = requested_long and pedal_long_allowed
+    # A stale software-cruise latch must not send an enabled hold command
+    # after selfdrived has disabled the system (including Controls Mismatch).
+    pedal_engaged = requested_long and pedal_long_allowed and CC.enabled
 
     # --- Engage transition ---
     requested_long_rising = (not self.prev_requested_long) and requested_long

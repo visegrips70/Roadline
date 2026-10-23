@@ -90,12 +90,6 @@ def update_preap(cs, can_parsers):
   eac_status = cs.can_defines["EPAS_sysStatus"]["EPAS_eacStatus"].get(int(epas_status["EPAS_eacStatus"]), None)
   ret.steerFaultPermanent = eac_status == "EAC_FAULT"
   
-  if ENABLE_HSO:
-    # Spoof temporary fault to instantly idle the rack and prevent internal EPAS hardware faults
-    ret.steerFaultTemporary = ret.steeringPressed
-  else:
-    ret.steerFaultTemporary = False
-
   eac_error_code = cs.can_defines["EPAS_sysStatus"]["EPAS_eacErrorCode"].get(int(epas_status["EPAS_eacErrorCode"]), None)
   # Disengage on hands-on override OR EPAS actively rejecting steering commands.
   # Error codes 6/7/8/9 = EPAS request validators rejected angle/rate/safety.
@@ -104,9 +98,14 @@ def update_preap(cs, can_parsers):
     "EAC_ERROR_HIGH_ANGLE_REQ", "EAC_ERROR_HIGH_ANGLE_RATE_REQ",
     "EAC_ERROR_HIGH_ANGLE_SAFETY", "EAC_ERROR_HIGH_ANGLE_RATE_SAFETY",
   )
-  ret.steerFaultTemporary = False
-  ret.steeringDisengage = False
-  cs.engagement.handle_steering_disengage(ret.steeringDisengage)
+  # Match the Panda's raw disengage conditions. Hiding these leaves the
+  # application engaged after Panda has withdrawn permission, producing a
+  # Controls Mismatch instead of a normal driver disengagement.
+  ret.steerFaultTemporary = epas_rejecting
+  ret.steeringDisengage = cs.hands_on_level >= 3 or epas_rejecting
+  # Filtered driver effort also cancels software cruise. It must not quietly
+  # hand steering back when the driver releases the wheel.
+  cs.engagement.handle_steering_disengage(ret.steeringDisengage or ret.steeringPressed)
 
   # Cruise state
   cruise_state = cs.can_defines["DI_state"]["DI_cruiseState"].get(int(cp_chassis.vl["DI_state"]["DI_cruiseState"]), None)
@@ -219,15 +218,8 @@ def update_preap(cs, can_parsers):
   ret.pedalLongActive = cs.enableLongControl and nap_conf.use_pedal
 
 
-  # NAP Dashboard: Instant Speed Offset & Trim Override
-  try:
-    with open('/data/nap_settings.json') as stream:
-      _sett = __import__('json').load(stream)
-    _off = 5.0 if _sett.get('speed_offset', False) else 0.0
-    _trim = float(_sett.get('speed_trim', 0.0))
-    ret.cruiseState.speed += ((_off + _trim) * CV.MPH_TO_MS)
-  except:
-    pass
+  # Report the FSM's selected target directly. Legacy dashboard speed-offset
+  # and trim values must not silently change a newly captured cruise speed.
 
   return ret
 
