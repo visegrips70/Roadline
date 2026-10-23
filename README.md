@@ -1,6 +1,15 @@
 # Roadline
 
-A NAP-based development fork for pre-Autopilot Tesla Model S and comma 3X.
+**Built on NAP (NotAutopilot), Philip's pre-AP work, and comma.ai openpilot.**
+
+Roadline is a development fork for pre-Autopilot Tesla Model S and comma 3X.
+Most of its source and the underlying driving stack are inherited from those
+projects and their contributors. Roadline adds adjustments, repairs, and its own
+presentation. See [upstream credits and source links](CREDITS.md).
+
+The current repair candidate is tracked in [draft PR #2](https://github.com/visegrips70/Roadline/pull/2).
+This default branch is the original development baseline, not an install release.
+Roadline is independently maintained; upstream endorsement is not implied.
 
 **Development source only. Not ready for installation or road use.**
 The desktop build succeeds, but inherited feature tests and broader safety checks
@@ -51,7 +60,7 @@ been performed as part of this work.
 
 See [VALIDATION.md](docs/roadline/VALIDATION.md) for build/test commands and release
 gates, and [PROVENANCE.md](docs/roadline/PROVENANCE.md) for exact upstream revisions.
-All source changes belong to Roadline; no upstream repositories are modified.
+Roadline-specific changes are maintained here; inherited work remains credited to its authors. No upstream repositories are modified.
 
 After building the native dependencies, a read-only local log report can be run:
 
