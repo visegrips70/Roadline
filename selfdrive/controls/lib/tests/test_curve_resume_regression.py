@@ -73,7 +73,7 @@ def test_full_regen_survives_actual_engage_grace_and_negative_jerk_limiter():
     zero.return_value.get.return_value=0.;vz.return_value.get.return_value=0.
     controller=cc.PreAPLongController()
     cs=N(cruiseEnabled=True,enableLongControl=True,pedal_interceptor_value=0.,pedal_timeout=False,
-         cruise_buttons=0,prev_cruise_buttons=0,pedal=N(torque_level=0.),out=N(vEgo=5.,aEgo=0.,gasPressed=False))
+         cruise_buttons=0,prev_cruise_buttons=0,pedal=N(torque_level=0.,available=True),out=N(vEgo=5.,aEgo=0.,gasPressed=False))
     command=N(enabled=True,longActive=True,actuators=N(accel=-2.5),orientationNED=[])
     can=MagicMock()
     previous=0.

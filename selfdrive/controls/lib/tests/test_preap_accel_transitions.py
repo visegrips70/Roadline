@@ -169,7 +169,7 @@ class ControllerIntegration(unittest.TestCase):
       zero.return_value.get.return_value=0.
       cs=N(cruiseEnabled=True,enableLongControl=True,pedal_interceptor_value=0.,
            out=N(vEgo=10.,aEgo=0.,gasPressed=False),cruise_buttons=0,prev_cruise_buttons=0,
-           pedal_timeout=False,pedal=N(torque_level=0.))
+           pedal_timeout=False,pedal=N(torque_level=0.,available=True))
       control=N(enabled=True,longActive=True,actuators=N(accel=1.),orientationNED=[])
       can=MagicMock();controller=cc.PreAPLongController()
       controller.update(control,cs,0,can,0)

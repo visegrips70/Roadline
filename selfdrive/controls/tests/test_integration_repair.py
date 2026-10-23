@@ -116,7 +116,7 @@ def test_driver_help_cancels_held_turn_until_intent_reset():
  assert e.blocked
 
 def pedal_cs(gas=False):
- return N(cruiseEnabled=True,enableLongControl=True,out=N(vEgo=5,aEgo=.4,gasPressed=gas),pedal_interceptor_value=6.,pedal_timeout=False,pedal=N(torque_level=0),cruise_buttons=0,prev_cruise_buttons=0,pccEvent=None)
+ return N(cruiseEnabled=True,enableLongControl=True,out=N(vEgo=5,aEgo=.4,gasPressed=gas),pedal_interceptor_value=6.,pedal_timeout=False,pedal=N(torque_level=0,available=True),cruise_buttons=0,prev_cruise_buttons=0,pccEvent=None)
 
 def test_pedal_press_passthrough_then_release_picks_up_current_state():
  from opendbc.car.tesla.preap import carcontroller as ccmod

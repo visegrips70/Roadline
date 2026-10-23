@@ -9,7 +9,7 @@ import pytest
 
 from opendbc.car import Bus
 from opendbc.car.tesla.preap.engagement import PreAPEngagement
-from opendbc.car.tesla.preap.carstate import update_preap
+from opendbc.car.tesla.preap.carstate import _current_time_millis, update_preap
 from opendbc.car.tesla.preap.tests import test_preap_carstate as _carstate_fixture
 
 
@@ -79,6 +79,16 @@ def interface():
   return ci
 
 
+def fresh_pedal_feedback(ci):
+  """Supply healthy, advancing feedback for tests of other interlocks."""
+  sensor = ci.can_parsers[Bus.ap_party].vl['GAS_SENSOR']
+  sensor.update(STATE=0, IDX=(ci.CS.pedal.idx + 1) % 16,
+                INTERCEPTOR_GAS=0., INTERCEPTOR_GAS2=0.)
+  ci.CS.pedal.update(sensor, _current_time_millis())
+  ci.CS.pedal_timeout = ci.CS.pedal.timeout
+  assert ci.CS.pedal.available
+
+
 @pytest.mark.parametrize('level,status,error,disengage,fault', [
   (0, 1, 0, False, False), (2, 1, 0, False, False), (3, 1, 0, True, False),
   (0, 0, 6, True, True), (0, 0, 7, True, True), (0, 0, 8, True, True), (0, 0, 9, True, True),
@@ -122,6 +132,7 @@ def test_filtered_manual_steering_cancels_and_does_not_quietly_hand_back(interfa
 
 def test_legacy_dashboard_offset_cannot_raise_pedal_cruise_target(interface):
   ci = interface
+  fresh_pedal_feedback(ci)
   ci.CS.engagement.cruiseEnabled = ci.CS.engagement.enableLongControl = True
   ci.CS.engagement.pedal_speed_kph = 32 * 1.609344
   from opendbc.car.tesla.preap.nap_conf import NAPConf
@@ -183,7 +194,7 @@ def wire_controller(interface):
   ci.CC.preap_long.vdas = MagicMock()
   ci.CC.preap_long.vdas.update.return_value = 6.
   ci.CS.cruiseEnabled = ci.CS.enableLongControl = True
-  ci.CS.pedal_timeout = False
+  fresh_pedal_feedback(ci)
   ci.CS.pedal_interceptor_value = 6.
   ci.CS.out.vEgo = ci.CS.out.vEgoRaw = 5.
   ci.CS.out.canValid = True
@@ -207,10 +218,6 @@ def wire_tick(ci, enabled=True, lat=True, long=True, curvature=0.):
   control.actuators.steeringAngleDeg = 30.
   control.actuators.curvature = curvature
   control.actuators.accel = .4
-  # These routing checks assume fresh pedal feedback. Empty input CAN in
-  # update_preap otherwise sets timeout, which throttles idle heartbeats to 1 Hz.
-  # Pedal feedback parsing/timeouts are covered by the existing pedal tests.
-  ci.CS.pedal_timeout = False
   # Both parity slots are exercised; command messages are emitted every other tick.
   frames = []
   for _ in range(2):
@@ -260,6 +267,23 @@ def test_packed_commands_require_application_and_cruise_enable(wire_controller, 
   assert wire_tick(ci, enabled=enabled) == (False, False)
 
 
+@pytest.mark.parametrize('fault', [False, True])
+def test_packed_commands_disable_pedal_on_unavailable_feedback(wire_controller, fault):
+  ci = wire_controller
+  assert wire_tick(ci) == (True, True)
+  sensor = ci.can_parsers[Bus.ap_party].vl['GAS_SENSOR']
+  if fault:
+    sensor.update(STATE=5, IDX=(ci.CS.pedal.idx + 1) % 16)
+    ci.CS.pedal.update(sensor, _current_time_millis())
+  else:
+    ci.CS.pedal.update(sensor, ci.CS.pedal.last_seen_ms + 501)
+  assert not ci.CS.pedal.available
+  ci.CS.pedal_timeout = ci.CS.pedal.timeout
+  # A timed-out stream only gets a disabled heartbeat every 100 controller ticks.
+  ci.CC.frame = 100
+  assert wire_tick(ci) == (True, False)
+
+
 def test_brake_preserves_steering_but_disables_pedal_commands(wire_controller):
   from unittest.mock import PropertyMock
   from opendbc.car.tesla.preap.nap_conf import NAPConf
@@ -271,6 +295,7 @@ def test_brake_preserves_steering_but_disables_pedal_commands(wire_controller):
   chassis.vl['BrakeMessage']['driverBrakeStatus'] = 2
   with patch.object(NAPConf, 'use_pedal', new_callable=PropertyMock, return_value=True), \
        patch.object(ci.CS, 'update_speed_kf', return_value=(5., 0.)):
+    fresh_pedal_feedback(ci)
     ci.CS.out = update_preap(ci.CS, ci.can_parsers)
   assert ci.CS.out.brake == 1.
   assert ci.CS.out.cruiseState.enabled
@@ -281,12 +306,14 @@ def test_brake_preserves_steering_but_disables_pedal_commands(wire_controller):
   chassis.vl['EPAS_sysStatus']['EPAS_torsionBarTorque'] = 6.
   with patch.object(NAPConf, 'use_pedal', new_callable=PropertyMock, return_value=True), \
        patch.object(ci.CS, 'update_speed_kf', return_value=(5., 0.)):
+    fresh_pedal_feedback(ci)
     ci.CS.out = update_preap(ci.CS, ci.can_parsers)
     assert not ci.CS.out.cruiseState.enabled
     assert wire_tick(ci) == (False, False)
     chassis.vl['EPAS_sysStatus']['EPAS_torsionBarTorque'] = 0.
     chassis.vl['BrakeMessage']['driverBrakeStatus'] = 1
     for _ in range(5):
+      fresh_pedal_feedback(ci)
       ci.CS.out = update_preap(ci.CS, ci.can_parsers)
     assert wire_tick(ci) == (False, False)
   assert not ci.CS.engagement.process_brake_resume(5000, 0., False, True, True, True, True, True)
