@@ -104,6 +104,30 @@ class ReleaseGateTests(unittest.TestCase):
     evidence["checks"]["rollback"]["reference"] = ""
     self.assertTrue(gate.inspect_tree(self.root, evidence)["blockers"])
 
+  def test_cosmetic_deferral_only_for_documented_staging_installation_test(self):
+    evidence = self.evidence()
+    evidence.update(channel="staging", purpose="installation-test")
+    evidence["checks"]["splash_playback"] = {"status": "deferred", "reference": "synthetic://known-issue",
+                                             "reason": "Registered prebuilt boot skips the startup spinner."}
+    report = gate.inspect_tree(self.root, evidence)
+    self.assertEqual(report["blockers"], [])
+    self.assertFalse(report["road_ready"])
+    self.assertEqual(report["deferred_cosmetic_checks"], ["splash_playback"])
+    for key, value in (("channel", "stable"), ("purpose", "driving")):
+      changed = dict(evidence, **{key: value})
+      self.assertTrue(gate.inspect_tree(self.root, changed)["blockers"])
+    evidence["checks"]["splash_playback"].pop("reason")
+    self.assertTrue(gate.inspect_tree(self.root, evidence)["blockers"])
+
+  def test_staging_cannot_defer_boot_build_settings_or_recovery(self):
+    for name in gate.CHECKS:
+      if name == "splash_playback":
+        continue
+      evidence = self.evidence()
+      evidence.update(channel="staging", purpose="installation-test")
+      evidence["checks"][name] = {"status": "deferred", "reference": "synthetic://test", "reason": "unfinished"}
+      self.assertTrue(gate.inspect_tree(self.root, evidence)["blockers"], name)
+
   def test_wrong_device_evidence_rejected(self):
     evidence = self.evidence()
     evidence["target"]["model"] = "comma tici"

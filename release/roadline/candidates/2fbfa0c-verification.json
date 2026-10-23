@@ -22,8 +22,8 @@
     "desktop_ci": "https://github.com/visegrips70/Roadline/actions/runs/40000142652",
     "native_runtime_execution": "Operator reported Roadline branding throughout the interface during the temporary bench test; process-health log review remains pending.",
     "clean_setup_install": "pending",
-    "settings_restore": "Device status confirms settings snapshot present and returned state; comparison with the saved settings is pending.",
-    "rollback": "Device status confirms previous active path, active service, assistance disabled and updates disabled after the reported reboot; reboot-versus-timer recovery mechanism remains to be inspected.",
+    "settings_restore": "Inspector output confirms all 30 compared saved settings match; no differing key names.",
+    "rollback": "Inspector confirms return on reboot, previous active path, exact startup launcher bytes/mode/owner restored, assistance disabled and updates disabled. Timer recovery was not separately demonstrated.",
     "splash_playback": "Not observed. Source analysis found the video is attached to the build/registration spinner, which registered prebuilt startup can skip."
   },
   "publication_enabled": false,
@@ -51,9 +51,11 @@
       "candidate_start_requested": true
     },
     "repeated_start_error": "Runtime contents or modes differ from the verified package.",
-    "repeated_start_interpretation": "A later retry was attempted after candidate execution. Startup can add cache and pairing files; exact differences have not yet been inspected.",
-    "settings_contents_verified": false,
-    "recovery_mechanism_verified": false,
-    "driving_validation": false
-  }
+    "repeated_start_interpretation": "All 3892 original files, execute bits and symlinks match. Only 520 Python caches and the local navigation key were added.",
+    "settings_contents_verified": true,
+    "recovery_mechanism_verified": true,
+    "driving_validation": false,
+    "inspection_reference": "release/roadline/candidates/2fbfa0c-bench-inspection.json"
+  },
+  "publication_scope": "Preparing a staging installation-test channel; splash playback deferred as a documented cosmetic issue. Clean setup and driving validation remain outstanding."
 }

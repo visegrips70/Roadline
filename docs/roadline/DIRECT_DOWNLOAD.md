@@ -1,110 +1,71 @@
-**Native build tooling:** An explicit Roadline staging installer target and inactive-checkout packager are now implemented. See [native installer build](NATIVE_INSTALLER_BUILD.md). They still require a comma 3X build and device validation; no live URL is enabled.
+# Roadline direct-download status
 
-**Draft repair update:** Branding source and all three exact approved binary assets are included. See [upload status](BRANDING_UPLOAD_STATUS.md). The installer is still disabled.
+The native 2fbfa0c installer and runtime are built. The operator observed the
+Roadline interface, and the post-reboot inspector confirmed the previous
+installation, exact launcher, all 30 compared settings, and all 3,892 original
+package files. Assistance and automatic updates remain disabled.
 
-# Roadline direct-download preparation
+Publication is being prepared for an **installation-test staging channel**.
+A passing publication workflow must create both `roadline-release-staging`
+(the complete runtime) and `roadline-installers` (the ARM64 ELF). Its report must
+verify anonymous access and the installer checksum before a URL is advertised.
+The intended URL is not live merely because this document names it:
+`https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer`.
 
-Status: preparation tooling, not a live installer or device-ready release.
+The workflow reconstructs the untouched package from pinned public source and
+checksummed native build chunks. It verifies the complete payload hash before
+publishing both new branches atomically. It refuses to overwrite an existing
+channel. It never executes the installer or vehicle software.
 
-## Intended experience
+Known cosmetic issue: a registered prebuilt boot can skip the startup animation.
+The evidence gate permits a documented `splash_playback: deferred` only with
+`channel: staging` and `purpose: installation-test`; all build, boot, settings and
+recovery checks still require passing evidence. Stable publication still requires
+splash playback. This is a disclosed deferral, not a claimed playback success.
 
-On a comma 3X setup screen, select Custom Software, enter one Roadline HTTPS URL,
-and receive the tested Roadline release with the approved green/white branding.
-A stable URL and a separate staging URL should select reviewed release payloads,
-not a moving development branch. Neither URL has been created or enabled.
+A live download is distinct from a successful clean installation. Clean setup,
+first boot through the installer, and driving validation remain outstanding. The
+first installer deliberately disables assistance and automatic updates. Do not
+reset a device to try an unpublished or unverified URL.
 
-The inspected setup implementation in `system/ui/tici_setup.py` requires an ELF
-installer, not a ZIP, GitHub web page, or shell script. The installer in
-`selfdrive/ui/installer/installer.cc` then clones a Git repository and starts its
-launcher. Those are two separate artifacts: the installer executable and the
-complete prepared runtime. A source ZIP is neither a prebuilt runtime nor an
-installer. See also the official openpilot installation overview:
-https://github.com/commaai/openpilot#using-openpilot-in-a-car
+## Installer and runtime
 
-## Repository and privacy
+Comma setup requires an ARM64 ELF installer, not a source ZIP, shell script, or
+GitHub repository page. The reviewed installer is 2,040,440 bytes and targets
+`https://github.com/visegrips70/Roadline.git`, branch `roadline-release-staging`.
+It requires the prepared runtime markers and executables before replacing the
+installation. It sets assistance off and updates disabled before first boot.
 
-The owner has requested public access to `visegrips70/Roadline` so the comma can
-fetch future updates without a Mac. Audit the published files, reachable history,
-attachments and dependencies before changing visibility. Public source access
-does not itself create an installer or validate a release. See
-[public access and device updates](PUBLIC_ACCESS_AND_UPDATES.md).
-The simple `installer.comma.ai/<owner>/<branch>` convention
-must not be treated as a working Roadline link: the existing repository is not
-named openpilot. Public source access alone does not supply a tested installer. Do not embed a personal access
-token, SSH private key, navigation pairing key, or device settings in an installer.
-The reviewed installer generator documents its repository-name assumptions:
-https://github.com/sshane/openpilot-installer-generator#aliases
+The runtime includes the pinned source, flattened submodules, native build
+products, model chunks, firmware support files, licenses and NAP/comma attribution.
+The tested runtime contains no private settings or local navigation pairing key.
+The separate original NAP backup and recovery record are not release assets.
 
-Preferred publication design: a separately audited release-only distribution
-repository, containing the flattened, tested runtime and required licenses, plus
-an explicit-repository AGNOS installer served over HTTPS. Public distribution
-is separate from making the development source public. The owner has authorized
-public source access; a validated installable runtime is still outstanding.
-A genuinely private installer would instead need
-a designed enrollment/authentication flow, not a token pasted into a public URL.
+## Publication and verification
 
-## Checks implemented here
+`tools/roadline/publish_staging.py` reconstructs only the reviewed 2fbfa0c payload.
+Its parts and source files are verified individually, then the complete tree is
+checked with `download_release.py`. The workflow creates new runtime and installer
+branches in one atomic push; it cannot replace existing branches. Its GitHub token
+is scoped to repository contents and is not written into the release.
 
-`tools/roadline/download_release.py` reads a prepared release tree and emits a JSON
-report. It does not build, install, update parameters, contact CAN, flash firmware,
-execute model pickles, or publish anything. Its checks include required files,
-ARM64 binary headers/execute bits, compiled model chunks and camera warps, obvious
-private material, unresolved LFS pointers, unsafe symlinks, source provenance,
-approved media hashes, and superseded display assets.
+The exact target is comma 3X (`comma tizi`), ARM64, AGNOS 17.2. A successful
+publication report identifies both Git commits and the installer SHA-256. It is
+transport/assembly evidence, not proof of clean installation or vehicle safety.
 
-```bash
-python3 tools/roadline/download_release.py /path/to/prepared-release > /tmp/roadline-release-report.json
+After publication, the installer URL can be checked without executing it:
+
+```sh
+python3 tools/roadline/verify_install_url.py \
+  'https://raw.githubusercontent.com/visegrips70/Roadline/roadline-installers/installer' \
+  --sha256 e2cdbe18ee902534c0b97ad898f604d884f76c77d86a578bd5333694cb623f61
 ```
 
-Exit 2 and `BLOCKED` are expected for the current source snapshots. To request
-publication review, supply `--evidence /path/outside/release/evidence.json` with
-`source_revision`, `payload_sha256`, the exact target object, and a `checks` object.
-Required check names are `desktop_ci`, `comma3x_build`, `bench_boot`,
-`splash_playback`, `settings_backup_restore`, and `rollback`. Each needs a literal
-`status: pass` and a nonempty evidence `reference`. These are maintainer assertions,
-not cryptographically authenticated attestations. Passing returns REVIEW_REQUIRED,
-never driving approval. Keep evidence and reports outside the hashed payload.
+The URL verifier rejects wrong architecture, HTML/script responses, changed
+content, truncated downloads and non-HTTPS redirects. A stable download address
+alone does not enable OTA updates. Future updates need their own reviewed runtime
+publication; the staging installer deliberately keeps automatic updates disabled.
 
-`tools/roadline/verify_install_url.py` fetches a proposed permanent HTTPS URL with
-an AGNOSSetup user agent, checks its size, ARM64 ELF header and reviewed SHA-256,
-and rejects HTML/ZIP/script responses, credential-bearing URLs and HTTP downgrades.
-It does not execute or save the downloaded installer.
-
-```bash
-python3 tools/roadline/verify_install_url.py '<reviewed HTTPS installer URL>' --sha256 '<reviewed 64-character checksum>'
-```
-
-A passing header/checksum check is not proof the installer executes or that the
-runtime repository is anonymously accessible. A clean setup install, first boot,
-settings restoration and recovery still require device testing. The URL verifier
-intentionally rejects expiring query-token URLs; choose a stable hosting endpoint.
-
-## Next release milestones
-
-1. Pin the integrated repair candidate after its remaining incident investigation
-   and validation. The exact approved branding media are now included on the
-   repair branch; the device and install-readiness branch have not been updated.
-2. Build that pinned source and every pinned dependency on the reviewed comma 3X
-   target. Use the existing inactive-checkout bench build process. Do not use
-   upstream `release/build_release.sh` unchanged: it deletes `/data/openpilot` and
-   pushes to comma.ai's repository. Do not use the destructive cleanup in
-   `release/build_stripped.sh` against a working installation either.
-3. Prepare a separate immutable runtime payload, flatten submodules, materialize
-   required LFS assets, preserve licenses, and remove private data. The native builder/packager and explicit-repository staging installer are
-   implemented; native build and device validation remain outstanding. Required fonts/assets come from the pinned upstream dependencies.
-4. Validate exact-payload bench boot, startup graphics, settings restoration and
-   rollback; record evidence. Hardware checks are not replaced by unit tests.
-5. After a privacy/licensing review and publication approval, serve the installer
-   and runtime anonymously. Verify the installer checksum and repository access,
-   test a fresh setup installation, then promote staging to stable manually.
-
-`release/roadline/channels.json` leaves both URLs and release hashes unset and
-publication disabled. The new GitHub workflow tests and packages only these
-preparation tools. It does not produce a native comma build or enable updates.
-
-## Unchanged
-
-No driving/control/driver-monitoring algorithms, firmware rules, pedal/radar
-configuration, source package name, dependency locks, installed software, or
-repository visibility are changed by this preparation work. Do not reset or
-uninstall the working comma software to try an unpublished URL.
+The animated splash still needs a source change and device playback verification.
+Steering takeover, pedal/brake behavior, CAN health, driver monitoring and the
+reported wrong-turn incident remain separate from download/installation checks.

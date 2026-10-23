@@ -39,8 +39,10 @@ path before the original launch body runs. The wrapper uses AGNOS's existing
 owner and executable mode, and refuses an unfamiliar launcher. No `/etc` writes,
 systemd enablement, root remount, or OS service override is performed. The timed
 return uses `systemd-run`, which creates a transient timer.
-Automatic return still needs actual device
-verification; unit tests exercise the recovery logic with service calls mocked.
+On 2026-10-23, the operator's inspector output confirmed recovery on reboot,
+the previous active path, exact launcher restoration, and all 30 compared settings.
+Timed return has not been independently demonstrated. Unit tests exercise both
+recovery paths with service calls mocked.
 
 Observe whether the Roadline animation and home screen appear, any error text,
 and whether the previous installation returns. After about three minutes:
@@ -122,3 +124,9 @@ Upstream startup entry point:
 Successful bench observations are only startup/recovery evidence. They do not
 validate steering takeover, braking, pedal behavior, radar or road use. No
 permanent switch, reset, OTA enablement or install URL is performed here.
+
+The recorded inspection is in
+`release/roadline/candidates/2fbfa0c-bench-inspection.json`. It confirms that all
+3,892 original files, owner execute bits and symlinks match, with only 520 Python
+caches and a local navigation pairing key added during startup. Publication uses
+the untouched package, never that exercised runtime.

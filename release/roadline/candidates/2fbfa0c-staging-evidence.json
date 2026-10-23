@@ -1,0 +1,42 @@
+{
+  "source_revision": "2fbfa0c654230ead83596e2f6a474f8a8692f464",
+  "payload_sha256": "a93bec8362161c117c36139842c253cbb32bfb7135ac0bc3c7bb7137babdecea",
+  "target": {
+    "model": "comma tizi",
+    "architecture": "aarch64",
+    "agnos": "17.2"
+  },
+  "channel": "staging",
+  "purpose": "installation-test",
+  "checks": {
+    "desktop_ci": {
+      "status": "pass",
+      "reference": "https://github.com/visegrips70/Roadline/actions/runs/40000142652"
+    },
+    "comma3x_build": {
+      "status": "pass",
+      "reference": "release/roadline/candidates/2fbfa0c-verification.json"
+    },
+    "bench_boot": {
+      "status": "pass",
+      "reference": "Operator observed Roadline UI, followed by exact-file verification in release/roadline/candidates/2fbfa0c-bench-inspection.json",
+      "scope": "UI startup only; no claim of driving or all-process health."
+    },
+    "settings_backup_restore": {
+      "status": "pass",
+      "reference": "release/roadline/candidates/2fbfa0c-bench-inspection.json"
+    },
+    "rollback": {
+      "status": "pass",
+      "reference": "release/roadline/candidates/2fbfa0c-bench-inspection.json",
+      "scope": "Reboot recovery verified; timed return not independently demonstrated."
+    },
+    "splash_playback": {
+      "status": "deferred",
+      "reference": "release/roadline/candidates/2fbfa0c-verification.json",
+      "reason": "Registered prebuilt boot can skip the build/registration spinner. Roadline home UI was observed. Cosmetic fix deferred for installation testing."
+    }
+  },
+  "clean_setup_verified": false,
+  "road_ready": false
+}

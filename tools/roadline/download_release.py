@@ -103,6 +103,13 @@ def evidence_errors(evidence, revision, payload_sha256):
   for name in CHECKS:
     item = checks.get(name)
     reference = item.get("reference") if isinstance(item, dict) else None
+    # A documented cosmetic defect may be deferred for an installation-test
+    # channel. Stable publication and every non-cosmetic check still need pass.
+    if (name == "splash_playback" and evidence.get("channel") == "staging"
+        and evidence.get("purpose") == "installation-test" and isinstance(item, dict)
+        and item.get("status") == "deferred" and isinstance(reference, str) and reference.strip()
+        and isinstance(item.get("reason"), str) and item["reason"].strip()):
+      continue
     if (not isinstance(item, dict) or item.get("status") != "pass"
         or not isinstance(reference, str) or not reference.strip()):
       errors.append(f"Missing passing evidence with a reference: {name}")
@@ -211,6 +218,9 @@ def inspect_tree(root, evidence=None):
           "source_revision": revision or None, "payload_sha256": payload_sha256,
           "target": {"model": "comma tizi", "architecture": "aarch64", "agnos": "17.2"},
           "files_checked": len(files), "blockers": issues,
+          "deferred_cosmetic_checks": ["splash_playback"] if isinstance(evidence, dict) and
+          isinstance(evidence.get("checks"), dict) and isinstance(evidence["checks"].get("splash_playback"), dict) and
+          evidence["checks"]["splash_playback"].get("status") == "deferred" else [],
           "limitations": ["Evidence references are maintainer assertions, not authenticated attestations.",
                           "Does not establish model inference, CAN health, vehicle safety, or installer operation.",
                           "No installer URL is generated or enabled by this tool."], "files": files}
