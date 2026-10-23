@@ -11,6 +11,8 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 FOCUSED = [
   'selfdrive/ui/tests/test_roadline_settings.py',
+  'selfdrive/ui/tests/test_roadline_live_lane.py',
+  'selfdrive/selfdrived/tests',
   'selfdrive/controls/tests/test_roadline_lane_position.py',
   'selfdrive/controls/tests/test_roadline_lane_simulation.py',
   'selfdrive/controls/tests/test_lane_centering.py',

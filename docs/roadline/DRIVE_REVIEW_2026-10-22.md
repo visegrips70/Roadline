@@ -143,3 +143,13 @@ supervisor cancellation, stale cruise flags, and decoded steering/pedal CAN.
 These new checks have not yet run. The local execution environment is unavailable;
 the draft PR is being validated by GitHub Actions. No vehicle files were changed.
 The full rlogs are still required to establish the incident's complete cause.
+
+The next draft also supplies persistent dashboard pairing initialization during
+startup and live 1-cm lane-preference buttons. The controller now accepts that
+preference while active, through the unchanged lane-centering health/geometry,
+acceleration and jerk limits. Tests cover persistence/migration failures, actual
+HUD callbacks, bounds/debounce, and preference reversals under the existing output
+limits. Two older actuator test doubles now explicitly include zero curvature;
+production direction validation was not relaxed for incomplete mocks.
+See [navigation and lane-position notes](NAVIGATION_AND_LANE_POSITION.md).
+No new tests are claimed passed until their GitHub run finishes.

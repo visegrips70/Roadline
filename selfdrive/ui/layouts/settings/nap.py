@@ -142,7 +142,8 @@ class NAPLayout(Widget):
       "Lane Position (1 cm steps)", self._lane_position_label,
       "Enter -30 to +30 cm: negative is left, positive is right, 0 is center. "
       "Requires Lane Centering Assist and clear lane lines. Narrow lanes limit the preference. "
-      "This does not calibrate the camera or change the displayed green path. Change while parked.",
+      "This does not calibrate the camera or change the displayed green path. "
+      "The driving screen also offers Left, Center and Right buttons in 1 cm steps.",
       callback=self._on_lane_position_click, enabled=lambda: ui_state.is_offroad,
     )
     self._all_items.append(self._lane_position_button)

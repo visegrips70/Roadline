@@ -154,7 +154,7 @@ def test_steering_takeover_requires_fresh_engagement_without_recentering_wheel()
  c.params=N(get_bool=lambda _:True);c.low_speed_steering_rate_enabled=True
  out=N(vEgo=4.,vEgoRaw=4.,leftBlinker=True,rightBlinker=False,steeringPressed=True,steeringAngleDeg=25.,steeringTorque=0.,canValid=True)
  cs_=N(out=out,hands_on_level=2,tap_stalk=N(),cruiseEnabled=True)
- actuator=MagicMock();actuator.steeringAngleDeg=30.
+ actuator=MagicMock();actuator.steeringAngleDeg=30.;actuator.curvature=0.
  control=N(actuators=actuator,enabled=True,latActive=True)
  with patch.object(ccmod,'apply_steer_angle_limits_vm',side_effect=lambda target,previous,*a:target) as apply:
   c._update_preap(control,cs_)
