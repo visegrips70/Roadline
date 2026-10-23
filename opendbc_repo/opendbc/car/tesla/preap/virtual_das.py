@@ -1,0 +1,351 @@
+"""Virtual DAS — feedforward-dominant cascaded longitudinal controller.
+
+Replaces the open-loop compute_pedal_command() path with a jerk-limited,
+feedback-corrected controller for smooth pedal actuation without DAS hardware.
+"""
+
+import json
+import math
+import os
+
+import numpy as np
+from numpy import clip, interp
+
+from opendbc.car.common.filter_simple import FirstOrderFilter, HighPassFilter
+from opendbc.car.common.pid import PIDController
+from opendbc.car.tesla.preap.constants import (
+  VDAS_INNER_K_BP, VDAS_INNER_KP_V, VDAS_INNER_KI_V,
+  VDAS_FUTURE_T_BP, VDAS_FUTURE_T_V,
+  VDAS_AEGO_FILTER_RC,
+)
+from opendbc.car.tesla.preap.ff_table_default import (
+  SPEED_BP as FF_SPEED_BP,
+  ACCEL_BP as FF_ACCEL_BP,
+  DEFAULT_TABLE as FF_DEFAULT_TABLE,
+)
+from opendbc.car.tesla.preap.nap_conf import (
+  nap_conf,
+  PEDAL_DI_MIN, PEDAL_DI_ZERO,
+  PEDAL_BP, PEDAL_MAX_VALUES,
+  ACCEL_MAX, REGEN_MAX,
+)
+from opendbc.car.tesla.pedal.controller import (
+  get_zero_torque,
+  PEDAL_RAMP_RATE_UP, PEDAL_RAMP_RATE_DOWN,
+)
+
+
+from opendbc.car.tesla.preap.pitch_grade_assist import PitchGradeAssist
+
+FF_TABLE_PATH = "/data/vdas_ff_table.json"
+
+# Inner PID error deadband: errors below this threshold are zeroed before
+# entering the PID. Prevents integral accumulation from sensor noise and
+# MPC jitter near steady-state. Applied to the error input, not the output,
+# so there's no discontinuity in the correction signal.
+PID_ERROR_DEADBAND = 0.1  # m/s²
+
+GRAVITY = 9.81  # m/s²
+PITCH_LP_RC = 0.5   # low-pass filter RC for steady-state grade (seconds)
+PITCH_HP_RC1 = 0.1  # high-pass inner RC for transient grade detection
+PITCH_HP_RC2 = 1.0  # high-pass outer RC
+MAX_PITCH_COMPENSATION = 1.5  # m/s² — clamp transient compensation
+
+
+class GradeEstimator:
+  """Estimates road grade from IMU pitch and compensates the controller.
+
+  Uses filtered pitch for bounded motor-load feedforward. Net vehicle
+  acceleration feedback is never gravity-adjusted. The high-pass estimate
+  is retained for compatibility/diagnostics; it is not added to pedal DI.
+
+  Follows the same pattern as Toyota's carcontroller.py lines 68-69, 204-235.
+  """
+
+  def __init__(self, dt: float = 0.02):
+    self.pitch_lp = FirstOrderFilter(0.0, PITCH_LP_RC, dt)
+    self.pitch_hp = HighPassFilter(0.0, PITCH_HP_RC1, PITCH_HP_RC2, dt)
+
+  def update(self, orientation_ned: list) -> tuple:
+    """Update filters with current pitch.
+
+    Args:
+      orientation_ned: [roll, pitch, yaw] from CC.orientationNED.
+                       Empty list if not yet calibrated.
+
+    Returns:
+      (grade_accel, pitch_compensation):
+        grade_accel: steady-state road-load acceleration (m/s²).
+                     Positive = uphill (additional motor effort is required).
+        pitch_compensation: transient feedforward bump for grade changes (m/s²).
+    """
+    if len(orientation_ned) < 2 or not math.isfinite(orientation_ned[1]):
+      self.reset()
+      return 0.0, 0.0
+
+    pitch = orientation_ned[1]
+    self.pitch_lp.update(pitch)
+    self.pitch_hp.update(pitch)
+
+    grade_accel = math.sin(self.pitch_lp.x) * GRAVITY
+    pitch_compensation = float(clip(
+      math.sin(self.pitch_hp.x) * GRAVITY,
+      -MAX_PITCH_COMPENSATION, MAX_PITCH_COMPENSATION))
+
+    return grade_accel, pitch_compensation
+
+  def reset(self):
+    self.pitch_lp.x = 0.0
+    self.pitch_hp.x = 0.0
+    self.pitch_hp._f1.x = 0.0
+    self.pitch_hp._f2.x = 0.0
+
+
+class JerkLimiter:
+  """Asymmetric S-curve rate limiter on acceleration commands."""
+
+  def __init__(self, j_pos_max: float = 2.5, j_neg_max: float = 2.5, dt: float = 0.02):
+    self.j_pos_max = j_pos_max
+    self.j_neg_max = j_neg_max
+    self.dt = dt
+    self.a_limited = 0.0
+
+  def update(self, a_cmd: float) -> float:
+    da_pos = self.j_pos_max * self.dt
+    da_neg = self.j_neg_max * self.dt
+    self.a_limited += float(clip(a_cmd - self.a_limited, -da_neg, da_pos))
+    return self.a_limited
+
+  def reset(self, a_init: float = 0.0):
+    self.a_limited = a_init
+
+
+# PREAP_ROAD_LOAD_FEEDFORWARD_V1
+# Desired acceleration is vehicle acceleration, not motor acceleration.
+# Holding 0.0 m/s² at speed requires positive motor torque to overcome
+# tire and aerodynamic drag. Without this baseline, the pedal repeatedly
+# crosses the physical drive/regen boundary while holding speed.
+#
+# Values are deliberately conservative. Segment 28 required approximately
+# 9-10 DI at 55-57 mph for nearly zero net acceleration.
+ROAD_LOAD_SPEED_BP = [
+  0.0,
+  5.0,
+  12.0,
+  20.0,
+  30.0,
+  40.0,
+]
+
+ROAD_LOAD_HOLD_DI = [
+  0.0,
+  1.0,
+  3.5,
+  6.5,
+  10.0,
+  13.0,
+]
+
+# Fade road-load support smoothly during mild deceleration. At or below
+# -0.6 m/s² it is completely removed, preserving the current lead, stop,
+# overspeed, and maximum-regen authority.
+ROAD_LOAD_FADE_DECEL = -0.60
+
+
+class FeedforwardModel:
+  """2D lookup table mapping (speed, accel) → pedal_di.
+
+  Loads from a JSON file if available (produced by generate_ff_table.py),
+  otherwise falls back to the default table computed from the legacy
+  3-breakpoint interpolation. Zero-torque offset is applied at runtime.
+  """
+
+  def __init__(self, table_path: str = FF_TABLE_PATH):
+    self.speed_bp = list(FF_SPEED_BP)
+    self.accel_bp = list(FF_ACCEL_BP)
+    self.table = [list(row) for row in FF_DEFAULT_TABLE]
+    self._load_override(table_path)
+
+  def _load_override(self, path: str):
+    if not os.path.isfile(path):
+      return
+    try:
+      with open(path) as f:
+        data = json.load(f)
+      self.speed_bp = data['speed_bp']
+      self.accel_bp = data['accel_bp']
+      self.table = data['table']
+    except (json.JSONDecodeError, KeyError, TypeError):
+      from opendbc.car.carlog import carlog
+      carlog.warning("vdas: failed to load FF table from %s, using defaults", path)
+
+  def get(self, a_cmd: float, v_ego: float, zero_torque_di: float, net_accel=None) -> float:
+    """Look up pedal_di for a given (speed, accel) pair.
+
+    The table is stored with zero_torque_di=0. At runtime the learned
+    zero-torque offset shifts the result: fully applied for positive
+    accel (gas side), linearly blended to zero at max regen.
+    """
+    # Bilinear interpolation: speed (outer), accel (inner)
+    si = float(interp(v_ego, self.speed_bp, range(len(self.speed_bp))))
+    si_lo = int(si)
+    si_hi = min(si_lo + 1, len(self.speed_bp) - 1)
+    sf = si - si_lo
+
+    di_lo = float(interp(a_cmd, self.accel_bp, self.table[si_lo]))
+    di_hi = float(interp(a_cmd, self.accel_bp, self.table[si_hi]))
+    base_di = di_lo + sf * (di_hi - di_lo)
+
+    # Zero-torque shift: full at accel=0, fades to zero at both extremes.
+    # Reproduces the legacy interp where zt is the midpoint, not an additive offset.
+    if a_cmd < 0:
+      blend = float(clip((a_cmd - REGEN_MAX) / (0.0 - REGEN_MAX), 0.0, 1.0))
+    else:
+      blend = float(1.0 - a_cmd / ACCEL_MAX)
+    base_di += zero_torque_di * blend
+
+    # PREAP_ROAD_LOAD_FEEDFORWARD_V1
+    # Supply the speed-dependent torque required for zero net vehicle
+    # acceleration. Mild negative requests progressively release this
+    # torque instead of abruptly crossing into regen.
+    road_load_di = float(interp(
+      v_ego,
+      ROAD_LOAD_SPEED_BP,
+      ROAD_LOAD_HOLD_DI,
+    ))
+
+    road_load_blend = float(clip(
+      (
+        (a_cmd if net_accel is None else net_accel) - ROAD_LOAD_FADE_DECEL
+      ) / (
+        0.0 - ROAD_LOAD_FADE_DECEL
+      ),
+      0.0,
+      1.0,
+    ))
+
+    base_di += road_load_di * road_load_blend
+
+    return base_di
+
+
+class VirtualDAS:
+  """Cascaded longitudinal controller for Pre-AP Tesla pedal control.
+
+  LongControl owns net-acceleration feedback. Physical jerk limits protect
+  the motor command, and feedforward converts motor acceleration to DI.
+  Pitch feedforward is disabled; LongControl handles hill tracking error.
+  The legacy inner PID remains disabled by the installed zero gains.
+  """
+
+  def __init__(self, dt: float = 0.02):
+    self.dt = dt
+    self.jerk_limiter = JerkLimiter(j_pos_max=2.5, j_neg_max=2.5, dt=dt)
+    self.ff_model = FeedforwardModel()
+    self.motor_jerk_limiter = JerkLimiter(dt=dt)
+    self.grade_load = self.motor_accel = self.accel_request = 0.
+    self.pitch_assist = PitchGradeAssist(dt=dt)
+    self.prev_pedal_di = 0.0
+
+    self.inner_pid = PIDController(
+      k_p=(VDAS_INNER_K_BP, VDAS_INNER_KP_V),
+      k_i=(VDAS_INNER_K_BP, VDAS_INNER_KI_V),
+      k_f=0.0,
+      pos_limit=PEDAL_RAMP_RATE_UP,
+      neg_limit=-PEDAL_RAMP_RATE_DOWN,
+      rate=1.0 / dt,
+    )
+    self.a_ego_filter = FirstOrderFilter(0.0, VDAS_AEGO_FILTER_RC, dt)
+    self.prev_a_ego_filtered = 0.0
+
+  def update(self, a_cmd: float, v_ego: float, prev_pedal_di: float,
+             a_ego: float = 0.0, freeze_integrator: bool = False,
+             orientation_ned: list | None = None, personality=None, allow_pitch=False) -> float:
+    """Compute pedal DI from acceleration command.
+
+    Args:
+      a_cmd: desired acceleration in m/s² (from longcontrol.py)
+      v_ego: current vehicle speed in m/s
+      prev_pedal_di: previous output DI (for rate limiting backstop)
+      a_ego: measured longitudinal acceleration in m/s²
+      freeze_integrator: True during engage grace period
+      orientation_ned: [roll, pitch, yaw] from CC.orientationNED, or None
+
+    Returns:
+      pedal_di: output in DI units (caller converts to voltage via di_to_pedal)
+    """
+    # The planner owns personality and ordinary comfort transitions. This
+    # stage accepts bounded feedback compensation and retains physical slew.
+    a_limited = self.jerk_limiter.update(a_cmd)
+    self.accel_slew_limited = abs(a_limited - a_cmd) > 1e-6
+
+    # NAP_UNIFIED_PITCH_V4: one bounded motor-domain correction; no raw DI.
+    # Grade assistance is evaluated in m/s^2 before physical motor jerk limit.
+    # Fresh planner gate must authorize, or feedforward stays unchanged.
+    grade_load = self.pitch_assist.update(
+      orientation_ned if orientation_ned is not None else [],
+      v_ego, a_limited, allowed=allow_pitch)
+    motor_request = float(clip(a_limited + grade_load, -2.5, ACCEL_MAX))
+    self.motor_accel = self.motor_jerk_limiter.update(motor_request)
+    self.motor_slew_limited = abs(self.motor_accel - motor_request) > 1e-6
+    ff_di = self._feedforward(self.motor_accel, v_ego, net_accel=a_limited)
+    self.grade_load = grade_load
+    self.accel_request = a_cmd
+
+    a_ego_corrected = a_ego
+
+    a_ego_filtered = self.a_ego_filter.update(a_ego_corrected)
+    j_ego = (a_ego_filtered - self.prev_a_ego_filtered) / self.dt
+    self.prev_a_ego_filtered = a_ego_filtered
+
+    future_t = float(interp(v_ego, VDAS_FUTURE_T_BP, VDAS_FUTURE_T_V))
+    a_ego_future = a_ego_filtered + j_ego * future_t
+
+    error = a_limited - a_ego_future
+    if abs(error) < PID_ERROR_DEADBAND:
+      error = 0.0
+
+    pid_correction = float(self.inner_pid.update(
+      error, speed=v_ego, freeze_integrator=freeze_integrator))
+
+    pedal_di = ff_di + pid_correction
+
+    pedal_profile = nap_conf.get_pedal_profile_values()
+    max_pedal_value = float(interp(v_ego, PEDAL_BP, pedal_profile))
+    limited_di = float(clip(pedal_di, PEDAL_DI_MIN, max_pedal_value))
+    self.pedal_limited = abs(limited_di - pedal_di) > 1e-6
+    pedal_di = self._rate_limit(limited_di, prev_pedal_di)
+    self.pedal_slew_limited = abs(pedal_di - limited_di) > 1e-6
+
+    self.prev_pedal_di = pedal_di
+    return pedal_di
+
+  def reset(self, a_init: float = 0.0, pedal_di_init: float = 0.0):
+    """Reset all internal state on engage transition."""
+    self.jerk_limiter.reset(a_init)
+    self.motor_jerk_limiter.reset(a_init)
+    self.grade_load = 0.
+    self.motor_accel = self.accel_request = a_init
+    self.inner_pid.reset()
+    self.pitch_assist.reset()
+    self.a_ego_filter.x = 0.0
+    self.prev_a_ego_filtered = 0.0
+    self.prev_pedal_di = pedal_di_init
+
+  def _feedforward(self, a_cmd: float, v_ego: float, net_accel=None) -> float:
+    """Map acceleration to pedal DI via 2D lookup table."""
+    zero_torque_di = get_zero_torque().get(v_ego)
+    pedal_profile = nap_conf.get_pedal_profile_values()
+    max_pedal_value = float(interp(v_ego, PEDAL_BP, pedal_profile))
+
+    pedal_di = self.ff_model.get(a_cmd, v_ego, zero_torque_di, net_accel=net_accel)
+
+    return float(clip(pedal_di, PEDAL_DI_MIN, max_pedal_value))
+
+  def _rate_limit(self, pedal_di: float, prev_pedal_di: float) -> float:
+    """Safety backstop: asymmetric DI rate limit."""
+    return float(clip(
+      pedal_di,
+      prev_pedal_di - PEDAL_RAMP_RATE_DOWN,
+      prev_pedal_di + PEDAL_RAMP_RATE_UP,
+    ))

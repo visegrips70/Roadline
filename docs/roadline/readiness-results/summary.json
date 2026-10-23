@@ -1,0 +1,89 @@
+{
+  "revision": "9503e0019c4b9c5d1b782f797cdf39b1d43d8000",
+  "working_tree_modified": false,
+  "checks": [
+    {
+      "name": "native-build",
+      "command": [
+        "/workspace/scratch/811aabd53a83/roadline/.venv/bin/python",
+        "-m",
+        "SCons",
+        "-j",
+        "2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.24
+    },
+    {
+      "name": "focused",
+      "command": [
+        "/workspace/scratch/811aabd53a83/roadline/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/ui/tests/test_roadline_settings.py",
+        "selfdrive/controls/tests/test_roadline_lane_position.py",
+        "selfdrive/controls/tests/test_roadline_lane_simulation.py",
+        "selfdrive/controls/tests/test_lane_centering.py",
+        "tools/roadline/tests",
+        "selfdrive/monitoring/test_monitoring.py",
+        "opendbc_repo/opendbc/safety/tests/test_tesla_preap.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.81
+    },
+    {
+      "name": "inherited-features",
+      "command": [
+        "/workspace/scratch/811aabd53a83/roadline/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/controls/tests",
+        "selfdrive/controls/lib/tests"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 58.58
+    },
+    {
+      "name": "dashboard",
+      "command": [
+        "/workspace/scratch/811aabd53a83/roadline/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "server/tests",
+        "-q"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 0.97
+    },
+    {
+      "name": "all-safety",
+      "command": [
+        "/workspace/scratch/811aabd53a83/roadline/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "opendbc_repo/opendbc/safety/tests"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 97.58
+    },
+    {
+      "name": "misra-baseline",
+      "command": [
+        "bash",
+        "opendbc_repo/opendbc/safety/tests/misra/test_misra.sh"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 19.21
+    }
+  ],
+  "status": "FAIL",
+  "scope": "Desktop development checks; no device, road, or end-to-end model validation."
+}

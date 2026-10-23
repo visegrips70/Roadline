@@ -1,0 +1,76 @@
+{
+  "revision": "c89dbaa6ed458b6085616ab49f9d1ac648c5702b",
+  "working_tree_modified": false,
+  "checks": [
+    {
+      "name": "native-build",
+      "command": [
+        "/workspace/scratch/d2b1948b86ab/nap-preap/.venv/bin/python",
+        "-m",
+        "SCons",
+        "-j",
+        "2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.56
+    },
+    {
+      "name": "focused",
+      "command": [
+        "/workspace/scratch/d2b1948b86ab/nap-preap/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/ui/tests/test_roadline_settings.py",
+        "selfdrive/controls/tests/test_roadline_lane_position.py",
+        "selfdrive/controls/tests/test_roadline_lane_simulation.py",
+        "selfdrive/controls/tests/test_lane_centering.py",
+        "tools/roadline/tests",
+        "selfdrive/monitoring/test_monitoring.py",
+        "opendbc_repo/opendbc/safety/tests/test_tesla_preap.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.5
+    },
+    {
+      "name": "inherited-features",
+      "command": [
+        "/workspace/scratch/d2b1948b86ab/nap-preap/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/controls/tests/test_city_turn_gates.py",
+        "selfdrive/controls/tests/test_manual_turn_commit.py",
+        "selfdrive/controls/tests/test_turn_continuation.py",
+        "selfdrive/controls/tests/test_turn_route_replay.py",
+        "selfdrive/controls/tests/test_turn_setting_types.py",
+        "selfdrive/controls/tests/test_turn_sign_conventions.py",
+        "selfdrive/controls/tests/test_wide_turn_order.py",
+        "selfdrive/controls/tests/test_steering_delivery.py",
+        "selfdrive/controls/tests/test_normal_model_stop.py",
+        "selfdrive/controls/tests/test_preap_longcontrol.py",
+        "selfdrive/controls/tests/test_intent_and_accel_constraints.py",
+        "selfdrive/controls/tests/test_coast_limit_recovery.py"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 2.05
+    },
+    {
+      "name": "all-safety",
+      "command": [
+        "/workspace/scratch/d2b1948b86ab/nap-preap/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "opendbc_repo/opendbc/safety/tests"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 64.53
+    }
+  ],
+  "status": "FAIL",
+  "scope": "Desktop development checks; no device, road, or end-to-end model validation."
+}

@@ -1,0 +1,20 @@
+{
+  "status": "DEVELOPMENT ONLY - not ready for installation or road use",
+  "prepared_source_commit": "1b9578f5d3f1ef32b749e866c4ec4a4aa174c79a",
+  "prepared_source_tree": "53b4efbe3cb4c72a0b433177f94df391431afd2d",
+  "source_tree_with_key_excluded": "c06176850ea70e7ff5203a1aec374c5d293bb38b",
+  "source_entries_with_key_excluded": 2208,
+  "excluded_files": [
+    {
+      "path": "system/hardware/tici/id_rsa",
+      "source_blob_sha": "3f269afe22835721d318ea3c18461daf2d21b79f",
+      "reason": "Automatic approval review blocked publication of this inherited RSA private-key file."
+    }
+  ],
+  "validation": "Saved reports describe the prepared source snapshot. No tests were rerun for publication; no runtime code edits were made for transfer. The excluded key affects availability of the inherited setup credential.",
+  "validation_report": "docs/roadline/VALIDATION.md",
+  "format": "Direct source tree and saved reports; no ZIP archive or Git bundle is published.",
+  "lfs_objects_included": false,
+  "external_submodule_contents_included": false,
+  "destination": "private visegrips70/Roadline, branch main"
+}

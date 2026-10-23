@@ -1,0 +1,89 @@
+{
+  "revision": "21519fbcbde16a1a33f88832e38c5de00d0f37ef",
+  "working_tree_modified": null,
+  "checks": [
+    {
+      "name": "native-build",
+      "command": [
+        "/home/batman/openpilot/.venv/bin/python",
+        "-m",
+        "SCons",
+        "-j",
+        "2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 264.73
+    },
+    {
+      "name": "focused",
+      "command": [
+        "/home/batman/openpilot/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/ui/tests/test_roadline_settings.py",
+        "selfdrive/controls/tests/test_roadline_lane_position.py",
+        "selfdrive/controls/tests/test_roadline_lane_simulation.py",
+        "selfdrive/controls/tests/test_lane_centering.py",
+        "tools/roadline/tests",
+        "selfdrive/monitoring/test_monitoring.py",
+        "opendbc_repo/opendbc/safety/tests/test_tesla_preap.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.65
+    },
+    {
+      "name": "inherited-features",
+      "command": [
+        "/home/batman/openpilot/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "selfdrive/controls/tests",
+        "selfdrive/controls/lib/tests"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 57.29
+    },
+    {
+      "name": "dashboard",
+      "command": [
+        "/home/batman/openpilot/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "server/tests",
+        "-q"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.03
+    },
+    {
+      "name": "all-safety",
+      "command": [
+        "/home/batman/openpilot/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "opendbc_repo/opendbc/safety/tests"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 107.52
+    },
+    {
+      "name": "misra-baseline",
+      "command": [
+        "bash",
+        "opendbc_repo/opendbc/safety/tests/misra/test_misra.sh"
+      ],
+      "exit_code": 2,
+      "elapsed_seconds": 18.91
+    }
+  ],
+  "status": "FAIL",
+  "scope": "Desktop development checks; no device, road, or end-to-end model validation."
+}

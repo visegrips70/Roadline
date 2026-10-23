@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-22",
+  "scope": "Local file-inventory and NAP configuration tests; no device access, CAN commands or firmware flashing",
+  "runtime_candidate": "369fc9d10f82789728f2a94ad6e1e2dd077dd8af",
+  "tests": {
+    "python": "3.12.3",
+    "command": "PYTHONPATH=\"$PWD/.venv/lib/python3.12/site-packages:$PWD:$PWD/server\" /usr/bin/python3.12 -m pytest -n 0 tools/roadline/tests/test_hardware_bundle.py tools/roadline/tests/test_device_report.py tools/roadline/tests/test_preap_compatibility.py -q",
+    "passed": 40,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "local_built_asset_inventory": {
+    "command": "python3 tools/roadline/hardware_bundle.py",
+    "required_assets": 18,
+    "bundle_files_complete": true,
+    "blockers": [],
+    "exit_code": 0
+  },
+  "syntax_checks": {
+    "bash_n_build_on_device": "PASS",
+    "python_compile_new_tool_and_tests": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "device": {
+    "candidate_build": "Owner previously reported SCons completion, exit 0, and matching 369fc9d build marker",
+    "current_state": "Owner reports NAP reinstalled after reset; fresh inventory pending",
+    "roadline_successful_boot": "unverified",
+    "live_panda_firmware": "unverified",
+    "pedal_epas_radar_operation": "unverified"
+  },
+  "road_ready": false
+}
